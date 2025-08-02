@@ -1,397 +1,387 @@
-'use client'
-
-import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+export const dynamic = 'force-dynamic'
+import { notFound } from 'next/navigation'
+import { Metadata } from 'next'
+import { getProductById } from '@/lib/data'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { 
-  ArrowLeft, 
-  Edit, 
-  Trash2, 
-  Package, 
-  DollarSign, 
-  Tag,
-  AlertTriangle,
-  Star,
-  Eye,
-  ToggleLeft,
-  ToggleRight
-} from 'lucide-react'
+import { ArrowLeft, Edit, Package, DollarSign, AlertTriangle, Star } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ProductWithCategory } from '@/types/dashboard'
-import { mockProducts } from '@/lib/mock-data'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
 
-export default function ProductDetailPage() {
-  const params = useParams()
-  const router = useRouter()
-  const [product, setProduct] = useState<ProductWithCategory | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const loadProduct = async () => {
-      setLoading(true)
-      // Simular carga de API
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      const foundProduct = mockProducts.find(p => p.id === params.id)
-      setProduct(foundProduct || null)
-      setLoading(false)
-    }
-
-    if (params.id) {
-      loadProduct()
-    }
-  }, [params.id])
-
-  const handleDelete = async () => {
-    // Simular eliminación
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    router.push('/admin/products')
-  }
-
-  const toggleStatus = async () => {
-    if (product) {
-      setProduct({ ...product, is_active: !product.is_active })
-    }
-  }
-
-  const toggleFeatured = async () => {
-    if (product) {
-      setProduct({ ...product, is_featured: !product.is_featured })
-    }
-  }
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      minimumFractionDigits: 0
-    }).format(value)
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="ml-2 text-gray-600">Cargando producto...</span>
-      </div>
-    )
-  }
-
+// Generar metadata dinámica
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const product = await getProductById(params.id)
+  
   if (!product) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <Package className="h-16 w-16 text-gray-300 mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Producto no encontrado</h2>
-        <p className="text-gray-600 mb-4">El producto que buscas no existe o ha sido eliminado.</p>
-        <Link href="/admin/products">
-          <Button>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Volver a productos
-          </Button>
-        </Link>
-      </div>
-    )
+    return {
+      title: 'Producto no encontrado',
+      description: 'El producto que buscas no existe'
+    }
+  }
+
+  return {
+    title: `${product.name} - Detalles del Producto`,
+    description: product.short_description || product.description || `Detalles del producto ${product.name}`,
+  }
+}
+
+// Componente para mostrar la información del producto
+async function ProductDetails({ productId }: { productId: string }) {
+  const product = await getProductById(productId)
+  
+  if (!product) {
+    notFound()
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header con navegación */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Link href="/admin/products">
-            <Button variant="outline" size="sm">
+            <Button variant="ghost" size="sm">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Volver
+              Volver a Productos
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900">{product.name}</h1>
-            <p className="text-gray-600">SKU: {product.sku}</p>
+            <h1 className="text-3xl font-bold tracking-tight">{product.name}</h1>
+            <p className="text-muted-foreground">SKU: {product.sku}</p>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" onClick={toggleStatus}>
-            {product.is_active ? (
-              <>
-                <ToggleLeft className="mr-2 h-4 w-4" />
-                Desactivar
-              </>
-            ) : (
-              <>
-                <ToggleRight className="mr-2 h-4 w-4" />
-                Activar
-              </>
-            )}
+        <Link href={`/admin/products/${productId}/edit`}>
+          <Button>
+            <Edit className="mr-2 h-4 w-4" />
+            Editar Producto
           </Button>
-          <Link href={`/admin/products/${product.id}/edit`}>
-            <Button>
-              <Edit className="mr-2 h-4 w-4" />
-              Editar
-            </Button>
-          </Link>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive">
-                <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Esta acción no se puede deshacer. El producto será eliminado permanentemente.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
-                  Eliminar
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
+        </Link>
       </div>
 
-      {/* Status Badges */}
-      <div className="flex items-center space-x-2">
-        <Badge variant={product.is_active ? 'default' : 'secondary'}>
-          {product.is_active ? 'Activo' : 'Inactivo'}
-        </Badge>
-        {product.is_featured && (
-          <Badge variant="outline" className="text-yellow-600 border-yellow-600">
-            <Star className="mr-1 h-3 w-3" />
-            Destacado
-          </Badge>
-        )}
-        {product.stock_quantity <= product.low_stock_threshold && (
-          <Badge variant="destructive">
-            <AlertTriangle className="mr-1 h-3 w-3" />
-            Stock Bajo
-          </Badge>
-        )}
-        {product.category && (
-          <Badge variant="outline">
-            <Tag className="mr-1 h-3 w-3" />
-            {product.category.name}
-          </Badge>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Product Images */}
-        <div className="lg:col-span-1">
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Información principal */}
+        <div className="space-y-6">
+          {/* Imagen del producto */}
           <Card>
             <CardHeader>
-              <CardTitle>Imágenes</CardTitle>
+              <CardTitle>Imagen del Producto</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {product.images.map((image, index) => (
-                  <div key={index} className="relative aspect-square rounded-lg overflow-hidden">
-                    <Image
-                      src={image}
-                      alt={`${product.name} - Imagen ${index + 1}`}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                ))}
-                {product.images.length === 0 && (
-                  <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center">
-                    <Package className="h-16 w-16 text-gray-300" />
-                  </div>
-                )}
-              </div>
+              {product.images && product.images.length > 0 ? (
+                <div className="relative aspect-square w-full max-w-md">
+                  <Image
+                    src={product.images[0]}
+                    alt={product.name}
+                    fill
+                    className="rounded-lg object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="aspect-square w-full max-w-md bg-gray-200 rounded-lg flex items-center justify-center">
+                  <span className="text-gray-400">Sin imagen</span>
+                </div>
+              )}
             </CardContent>
           </Card>
-        </div>
 
-        {/* Product Details */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Basic Info */}
+          {/* Información básica */}
           <Card>
             <CardHeader>
               <CardTitle>Información Básica</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <h3 className="font-medium text-gray-900 mb-1">Descripción</h3>
-                <p className="text-gray-600">{product.description || 'Sin descripción'}</p>
-              </div>
-              
-              <div>
-                <h3 className="font-medium text-gray-900 mb-1">Descripción Corta</h3>
-                <p className="text-gray-600">{product.short_description || 'Sin descripción corta'}</p>
-              </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <h3 className="font-medium text-gray-900 mb-1">Marca</h3>
-                  <p className="text-gray-600">{product.brand || 'Sin marca'}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Nombre</label>
+                  <p className="text-sm">{product.name}</p>
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-900 mb-1">Peso</h3>
-                  <p className="text-gray-600">{product.weight ? `${product.weight}g` : 'No especificado'}</p>
+                  <label className="text-sm font-medium text-muted-foreground">SKU</label>
+                  <p className="text-sm font-mono">{product.sku}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Categoría</label>
+                  <p className="text-sm">
+                    {product.category ? (
+                      <Badge variant="secondary">{product.category.name}</Badge>
+                    ) : (
+                      'Sin categoría'
+                    )}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Marca</label>
+                  <p className="text-sm">{product.brand || 'No especificada'}</p>
                 </div>
               </div>
 
-              {product.serving_size && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h3 className="font-medium text-gray-900 mb-1">Tamaño de Porción</h3>
-                    <p className="text-gray-600">{product.serving_size}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-900 mb-1">Porciones por Envase</h3>
-                    <p className="text-gray-600">{product.servings_per_container}</p>
-                  </div>
+              {product.description && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Descripción</label>
+                  <p className="text-sm mt-1">{product.description}</p>
+                </div>
+              )}
+
+              {product.short_description && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Descripción Corta</label>
+                  <p className="text-sm mt-1">{product.short_description}</p>
                 </div>
               )}
             </CardContent>
           </Card>
+        </div>
 
-          {/* Pricing */}
+        {/* Información de precios y stock */}
+        <div className="space-y-6">
+          {/* Precios */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <DollarSign className="mr-2 h-5 w-5" />
-                Precios
+                <DollarSign className="mr-2 h-4 w-4" />
+                Información de Precios
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-4">
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <h3 className="font-medium text-gray-900 mb-1">Precio de Venta</h3>
-                  <p className="text-2xl font-bold text-green-600">{formatCurrency(product.price)}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Precio de Venta</label>
+                  <p className="text-2xl font-bold">
+                    {new Intl.NumberFormat('es-CO', {
+                      style: 'currency',
+                      currency: 'COP',
+                      minimumFractionDigits: 0
+                    }).format(product.price)}
+                  </p>
                 </div>
                 {product.compare_price && (
                   <div>
-                    <h3 className="font-medium text-gray-900 mb-1">Precio Comparativo</h3>
-                    <p className="text-xl text-gray-500 line-through">{formatCurrency(product.compare_price)}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Precio Comparativo</label>
+                    <p className="text-lg line-through text-muted-foreground">
+                      {new Intl.NumberFormat('es-CO', {
+                        style: 'currency',
+                        currency: 'COP',
+                        minimumFractionDigits: 0
+                      }).format(product.compare_price)}
+                    </p>
                   </div>
                 )}
                 {product.cost_price && (
                   <div>
-                    <h3 className="font-medium text-gray-900 mb-1">Precio de Costo</h3>
-                    <p className="text-xl text-gray-600">{formatCurrency(product.cost_price)}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Precio de Costo</label>
+                    <p className="text-sm">
+                      {new Intl.NumberFormat('es-CO', {
+                        style: 'currency',
+                        currency: 'COP',
+                        minimumFractionDigits: 0
+                      }).format(product.cost_price)}
+                    </p>
                   </div>
                 )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Inventory */}
+          {/* Stock */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <Package className="mr-2 h-5 w-5" />
-                Inventario
+                <Package className="mr-2 h-4 w-4" />
+                Información de Stock
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <h3 className="font-medium text-gray-900 mb-1">Stock Actual</h3>
+                  <label className="text-sm font-medium text-muted-foreground">Stock Actual</label>
                   <p className={`text-2xl font-bold ${
                     product.stock_quantity <= product.low_stock_threshold 
                       ? 'text-red-600' 
-                      : 'text-green-600'
+                      : ''
                   }`}>
-                    {product.stock_quantity} unidades
+                    {product.stock_quantity}
                   </p>
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-900 mb-1">Umbral de Stock Bajo</h3>
-                  <p className="text-xl text-gray-600">{product.low_stock_threshold} unidades</p>
+                  <label className="text-sm font-medium text-muted-foreground">Umbral de Stock Bajo</label>
+                  <p className="text-sm">{product.low_stock_threshold}</p>
                 </div>
               </div>
+
               {product.stock_quantity <= product.low_stock_threshold && (
-                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <div className="flex items-center">
-                    <AlertTriangle className="h-5 w-5 text-red-600 mr-2" />
-                    <span className="text-red-800 font-medium">Stock bajo - Requiere reposición</span>
-                  </div>
+                <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  <span className="text-sm text-red-600 font-medium">
+                    Stock bajo - Requiere reposición
+                  </span>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Tags and Ingredients */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Etiquetas</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {product.tags.map((tag, index) => (
-                    <Badge key={index} variant="outline">
-                      {tag}
+          {/* Estado del producto */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Estado del Producto</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Estado</label>
+                  <div className="mt-1">
+                    <Badge variant={product.is_active ? 'default' : 'secondary'}>
+                      {product.is_active ? 'Activo' : 'Inactivo'}
                     </Badge>
-                  ))}
-                  {product.tags.length === 0 && (
-                    <p className="text-gray-500">Sin etiquetas</p>
-                  )}
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Ingredientes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-1">
-                  {product.ingredients.map((ingredient, index) => (
-                    <p key={index} className="text-sm text-gray-600">• {ingredient}</p>
-                  ))}
-                  {product.ingredients.length === 0 && (
-                    <p className="text-gray-500">Sin ingredientes especificados</p>
-                  )}
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Destacado</label>
+                  <div className="mt-1">
+                    {product.is_featured ? (
+                      <Badge variant="outline" className="text-yellow-600 border-yellow-600">
+                        <Star className="mr-1 h-3 w-3" />
+                        Destacado
+                      </Badge>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">No destacado</span>
+                    )}
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Nutritional Info */}
-          {Object.keys(product.nutritional_info).length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Información Nutricional</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {Object.entries(product.nutritional_info).map(([key, value]) => (
-                    <div key={key} className="text-center p-3 bg-gray-50 rounded-lg">
-                      <p className="text-sm text-gray-600 capitalize">{key.replace('_', ' ')}</p>
-                      <p className="text-lg font-semibold text-gray-900">
-                        {value}{key.includes('calorie') ? '' : key.includes('mg') ? 'mg' : 'g'}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
+
+      {/* Información adicional */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Información nutricional */}
+        {product.nutritional_info && Object.keys(product.nutritional_info).length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Información Nutricional</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                {Object.entries(product.nutritional_info).map(([key, value]) => (
+                  <div key={key}>
+                    <label className="text-sm font-medium text-muted-foreground capitalize">
+                      {key.replace(/_/g, ' ')}
+                    </label>
+                    <p className="text-sm">{value}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Ingredientes */}
+        {product.ingredients && product.ingredients.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Ingredientes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="list-disc list-inside space-y-1">
+                {product.ingredients.map((ingredient, index) => (
+                  <li key={index} className="text-sm">{ingredient}</li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Tags */}
+        {product.tags && product.tags.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Etiquetas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {product.tags.map((tag, index) => (
+                  <Badge key={index} variant="outline">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Información de peso y porciones */}
+        {(product.weight || product.serving_size || product.servings_per_container) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Especificaciones</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                {product.weight && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Peso</label>
+                    <p className="text-sm">{product.weight}g</p>
+                  </div>
+                )}
+                {product.serving_size && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Tamaño de Porción</label>
+                    <p className="text-sm">{product.serving_size}</p>
+                  </div>
+                )}
+                {product.servings_per_container && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Porciones por Envase</label>
+                    <p className="text-sm">{product.servings_per_container}</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Fechas */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Información de Fechas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Fecha de Creación</label>
+              <p className="text-sm">
+                {new Date(product.created_at).toLocaleDateString('es-CO', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Última Actualización</label>
+              <p className="text-sm">
+                {new Date(product.updated_at).toLocaleDateString('es-CO', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
+}
+
+// Página principal
+export default async function ProductDetailPage({ params }: { params: { id: string } }) {
+  return <ProductDetails productId={params.id} />
 }

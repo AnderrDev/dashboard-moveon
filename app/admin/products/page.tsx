@@ -1,230 +1,172 @@
-'use client'
-
-import { useState } from 'react'
-import { useProducts } from '@/hooks/use-products'
-import { DataTable } from '@/components/ui/data-table'
+export const dynamic = 'force-dynamic'
+import { Suspense } from 'react'
+import { Metadata } from 'next'
+import { getProducts, getProductStats } from '@/lib/data'
 import { columns } from './columns'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { DataTable } from '@/components/ui/data-table'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { 
-  Plus, 
-  Package, 
-  AlertTriangle, 
-  TrendingUp, 
-  Download,
-  Filter,
-  Loader2
-} from 'lucide-react'
-import Link from 'next/link'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { Skeleton } from '@/components/ui/skeleton'
 
-export default function ProductsPage() {
-  const { products, loading, error } = useProducts()
-  const [filter, setFilter] = useState<'all' | 'active' | 'inactive' | 'low-stock' | 'featured'>('all')
+// Metadata estática para SEO
+export const metadata: Metadata = {
+  title: 'Productos - Panel de Administración',
+  description: 'Gestiona todos los productos de tu tienda desde el panel de administración',
+}
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-        <span className="ml-2 text-gray-600">Cargando productos...</span>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Card className="p-6">
-          <CardContent>
-            <p className="text-red-600">{error}</p>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  // Filtrar productos según el filtro seleccionado
-  const filteredProducts = products.filter(product => {
-    switch (filter) {
-      case 'active':
-        return product.is_active
-      case 'inactive':
-        return !product.is_active
-      case 'low-stock':
-        return product.stock_quantity <= product.low_stock_threshold
-      case 'featured':
-        return product.is_featured
-      default:
-        return true
-    }
-  })
-
-  // Calcular estadísticas
-  const totalProducts = products.length
-  const activeProducts = products.filter(p => p.is_active).length
-  const lowStockProducts = products.filter(p => p.stock_quantity <= p.low_stock_threshold).length
-  const featuredProducts = products.filter(p => p.is_featured).length
+// Componente de carga para estadísticas
+async function ProductStats() {
+  const stats = await getProductStats()
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Productos</h1>
-          <p className="text-gray-600">Gestiona tu inventario de suplementos deportivos</p>
-        </div>
-        <div className="flex items-center space-x-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                <Download className="mr-2 h-4 w-4" />
-                Exportar
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuLabel>Formato de exportación</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Exportar como CSV</DropdownMenuItem>
-              <DropdownMenuItem>Exportar como Excel</DropdownMenuItem>
-              <DropdownMenuItem>Exportar como PDF</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Link href="/admin/products/new">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Nuevo Producto
-            </Button>
-          </Link>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setFilter('all')}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Productos</CardTitle>
-            <Package className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{totalProducts}</div>
-            <p className="text-xs text-gray-500 mt-1">
-              {activeProducts} activos, {totalProducts - activeProducts} inactivos
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setFilter('active')}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Productos Activos</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{activeProducts}</div>
-            <p className="text-xs text-gray-500 mt-1">
-              {((activeProducts / totalProducts) * 100).toFixed(1)}% del total
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setFilter('low-stock')}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Stock Bajo</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{lowStockProducts}</div>
-            <p className="text-xs text-gray-500 mt-1">
-              Requieren reposición
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setFilter('featured')}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Destacados</CardTitle>
-            <div className="text-yellow-600">⭐</div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{featuredProducts}</div>
-            <p className="text-xs text-gray-500 mt-1">
-              Productos promocionados
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <div className="flex items-center space-x-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline">
-              <Filter className="mr-2 h-4 w-4" />
-              Filtros
-              {filter !== 'all' && (
-                <Badge variant="secondary" className="ml-2">
-                  {filter === 'active' && 'Activos'}
-                  {filter === 'inactive' && 'Inactivos'}
-                  {filter === 'low-stock' && 'Stock Bajo'}
-                  {filter === 'featured' && 'Destacados'}
-                </Badge>
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuLabel>Filtrar por estado</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => setFilter('all')}>
-              Todos los productos
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilter('active')}>
-              Solo activos
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilter('inactive')}>
-              Solo inactivos
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilter('low-stock')}>
-              Stock bajo
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilter('featured')}>
-              Destacados
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        
-        {filter !== 'all' && (
-          <Button variant="ghost" size="sm" onClick={() => setFilter('all')}>
-            Limpiar filtros
-          </Button>
-        )}
-      </div>
-
-      {/* Products Table */}
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
       <Card>
-        <CardHeader>
-          <CardTitle>
-            Lista de Productos 
-            <Badge variant="secondary" className="ml-2">
-              {filteredProducts.length}
-            </Badge>
-          </CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Total Productos</CardTitle>
         </CardHeader>
         <CardContent>
-          <DataTable 
-            columns={columns} 
-            data={filteredProducts}
-            searchKey="name"
-            searchPlaceholder="Buscar productos..."
-          />
+          <div className="text-2xl font-bold">{stats.totalProducts}</div>
         </CardContent>
       </Card>
+      
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Productos Activos</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{stats.activeProducts}</div>
+        </CardContent>
+      </Card>
+      
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Destacados</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{stats.featuredProducts}</div>
+        </CardContent>
+      </Card>
+      
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Stock Bajo</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-orange-600">{stats.lowStockProducts}</div>
+        </CardContent>
+      </Card>
+      
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Sin Stock</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-red-600">{stats.outOfStockProducts}</div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// Componente de carga para la tabla de productos
+async function ProductsTable() {
+  const { products, total, page, totalPages } = await getProducts({
+    page: 1,
+    limit: 20,
+    filters: {  },
+    sort: { field: 'created_at', direction: 'desc' }
+  })
+  
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Productos</CardTitle>
+        <CardDescription>
+          Gestiona todos los productos de tu tienda. Total: {total} productos
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <DataTable 
+          columns={columns} 
+          data={products}
+          searchKey="name"
+          searchPlaceholder="Buscar productos..."
+        />
+      </CardContent>
+    </Card>
+  )
+}
+
+// Componente de skeleton para carga
+function ProductStatsSkeleton() {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Card key={i}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <Skeleton className="h-4 w-24" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-8 w-16" />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+function ProductsTableSkeleton() {
+  return (
+    <Card>
+      <CardHeader>
+        <Skeleton className="h-6 w-32" />
+        <Skeleton className="h-4 w-64" />
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center space-x-4">
+              <Skeleton className="h-12 w-12 rounded" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// Página principal
+export default async function ProductsPage() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Productos</h1>
+          <p className="text-muted-foreground">
+            Gestiona el catálogo de productos de tu tienda
+          </p>
+        </div>
+        <a href="/admin/products/new">
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white shadow transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+          >
+            {/* Icono de agregar producto (puedes usar un SVG o un icono de Lucide) */}
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            Nuevo Producto
+          </button>
+        </a>
+      </div>
+      <Suspense fallback={<ProductStatsSkeleton />}>
+        <ProductStats />
+      </Suspense>
+      <Suspense fallback={<ProductsTableSkeleton />}>
+        <ProductsTable />
+      </Suspense>
     </div>
   )
 }
