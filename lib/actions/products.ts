@@ -2,10 +2,34 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { updateProduct as updateProductData } from '@/lib/data/products'
+import { updateProduct as updateProductData, createProduct as createProductData } from '@/lib/data/products'
 import { ProductWithCategory } from '@/types/dashboard'
 
 // Tipos para las acciones
+export interface CreateProductData {
+  name: string
+  slug: string
+  description?: string
+  short_description?: string
+  sku: string
+  price: number
+  compare_price?: number | null
+  cost_price?: number | null
+  stock_quantity: number
+  low_stock_threshold: number
+  brand?: string
+  weight?: number
+  serving_size?: string
+  servings_per_container?: number
+  category_id?: string | null
+  tags?: string[]
+  ingredients?: string[]
+  nutritional_info?: Record<string, any>
+  images?: string[]
+  is_active?: boolean
+  is_featured?: boolean
+}
+
 export interface UpdateProductData {
   name?: string
   slug?: string
@@ -13,21 +37,84 @@ export interface UpdateProductData {
   short_description?: string
   sku?: string
   price?: number
-  compare_price?: number
-  cost_price?: number
+  compare_price?: number | null
+  cost_price?: number | null
   stock_quantity?: number
   low_stock_threshold?: number
   brand?: string
   weight?: number
   serving_size?: string
   servings_per_container?: number
-  category_id?: string
+  category_id?: string | null
   tags?: string[]
   ingredients?: string[]
   nutritional_info?: Record<string, any>
   images?: string[]
   is_active?: boolean
   is_featured?: boolean
+}
+
+// Acción para crear un nuevo producto
+export async function createProductAction(data: CreateProductData) {
+  try {
+    // Validaciones básicas
+    if (!data.name || data.name.trim().length === 0) {
+      throw new Error('El nombre del producto es requerido')
+    }
+
+    if (!data.slug || data.slug.trim().length === 0) {
+      throw new Error('El slug del producto es requerido')
+    }
+
+    if (!data.sku || data.sku.trim().length === 0) {
+      throw new Error('El SKU del producto es requerido')
+    }
+
+    if (data.price < 0) {
+      throw new Error('El precio no puede ser negativo')
+    }
+
+    if (data.compare_price !== undefined && data.compare_price !== null && data.compare_price > 0 && data.compare_price <= data.price) {
+      throw new Error('El precio comparativo debe ser 0 o mayor al precio de venta')
+    }
+
+    if (data.cost_price !== undefined && data.cost_price !== null && data.cost_price < 0) {
+      throw new Error('El precio de costo no puede ser negativo')
+    }
+
+    if (data.stock_quantity < 0) {
+      throw new Error('El stock no puede ser negativo')
+    }
+
+    if (data.low_stock_threshold < 0) {
+      throw new Error('El umbral de stock bajo no puede ser negativo')
+    }
+
+    // Crear producto
+    const newProduct = await createProductData(data)
+
+    if (!newProduct) {
+      throw new Error('No se pudo crear el producto')
+    }
+
+    // Revalidar rutas relacionadas
+    revalidatePath('/admin/products')
+    revalidatePath('/admin/products/new')
+
+    return {
+      success: true,
+      product: newProduct,
+      message: 'Producto creado correctamente'
+    }
+
+  } catch (error) {
+    console.error('Error en createProductAction:', error)
+    
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error desconocido al crear el producto'
+    }
+  }
 }
 
 // Acción para actualizar un producto
@@ -44,6 +131,14 @@ export async function updateProductAction(id: string, data: UpdateProductData) {
 
     if (data.price !== undefined && data.price < 0) {
       throw new Error('El precio no puede ser negativo')
+    }
+
+    if (data.compare_price !== undefined && data.compare_price !== null && data.compare_price > 0 && data.price !== undefined && data.compare_price <= data.price) {
+      throw new Error('El precio comparativo debe ser 0 o mayor al precio de venta')
+    }
+
+    if (data.cost_price !== undefined && data.cost_price !== null && data.cost_price < 0) {
+      throw new Error('El precio de costo no puede ser negativo')
     }
 
     if (data.stock_quantity !== undefined && data.stock_quantity < 0) {

@@ -434,15 +434,15 @@ export async function updateProduct(id: string, data: {
   short_description?: string
   sku?: string
   price?: number
-  compare_price?: number
-  cost_price?: number
+  compare_price?: number | null
+  cost_price?: number | null
   stock_quantity?: number
   low_stock_threshold?: number
   brand?: string
   weight?: number
   serving_size?: string
   servings_per_container?: number
-  category_id?: string
+  category_id?: string | null
   tags?: string[]
   ingredients?: string[]
   nutritional_info?: Record<string, any>
@@ -469,7 +469,7 @@ export async function updateProduct(id: string, data: {
       weight: data.weight,
       serving_size: data.serving_size,
       servings_per_container: data.servings_per_container,
-      category_id: data.category_id,
+      category_id: data.category_id || null,
       tags: data.tags,
       ingredients: data.ingredients,
       nutritional_info: data.nutritional_info,
@@ -509,6 +509,93 @@ export async function updateProduct(id: string, data: {
 
   } catch (error) {
     console.error('Error in updateProduct:', error)
+    throw error
+  }
+}
+
+// Función para crear un nuevo producto
+export async function createProduct(data: {
+  name: string
+  slug: string
+  description?: string
+  short_description?: string
+  sku: string
+  price: number
+  compare_price?: number | null
+  cost_price?: number | null
+  stock_quantity: number
+  low_stock_threshold: number
+  brand?: string
+  weight?: number
+  serving_size?: string
+  servings_per_container?: number
+  category_id?: string | null
+  tags?: string[]
+  ingredients?: string[]
+  nutritional_info?: Record<string, any>
+  images?: string[]
+  is_active?: boolean
+  is_featured?: boolean
+}): Promise<ProductWithCategory | null> {
+  try {
+    const supabase = createServerClient()
+    
+    // Preparar datos para inserción
+    const insertData = {
+      name: data.name,
+      slug: data.slug,
+      description: data.description,
+      short_description: data.short_description,
+      sku: data.sku,
+      price: data.price,
+      compare_price: data.compare_price,
+      cost_price: data.cost_price,
+      stock_quantity: data.stock_quantity,
+      low_stock_threshold: data.low_stock_threshold,
+      brand: data.brand,
+      weight: data.weight,
+      serving_size: data.serving_size,
+      servings_per_container: data.servings_per_container,
+      category_id: data.category_id || null,
+      tags: data.tags || [],
+      ingredients: data.ingredients || [],
+      nutritional_info: data.nutritional_info || {},
+      images: data.images || [],
+      is_active: data.is_active ?? true,
+      is_featured: data.is_featured ?? false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+
+    const { data: newProduct, error } = await supabase
+      .from('products')
+      .insert(insertData)
+      .select(`
+        *,
+        categories (
+          id,
+          name,
+          slug
+        )
+      `)
+      .single()
+
+    if (error) {
+      console.error('Error creating product:', error)
+      throw new Error('Error al crear el producto')
+    }
+
+    if (!newProduct) {
+      return null
+    }
+
+    return mapProductRowToProductWithCategory(
+      newProduct,
+      newProduct.categories as CategoryRow
+    )
+
+  } catch (error) {
+    console.error('Error in createProduct:', error)
     throw error
   }
 }
