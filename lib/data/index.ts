@@ -31,5 +31,16 @@ export {
   type CategoriesQueryOptions
 } from './categories'
 
+// Exportaciones de órdenes
+export {
+  getOrders,
+  getOrdersFromDatabase,
+  getOrderById,
+  getOrderStats,
+  type OrderFilters,
+  type OrderSortOptions,
+  type OrdersQueryOptions
+} from './orders'
+
 // Re-exportar tipos comunes
-export type { ProductWithCategory, CategoryWithProducts } from '@/types/dashboard' 
+export type { ProductWithCategory, CategoryWithProducts, OrderWithDetails } from '@/types/dashboard' 
