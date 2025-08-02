@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Customer } from '@/types/admin'
 import { MoreHorizontal, ArrowUpDown, Eye, Mail, Ban, CheckCircle, UserX } from 'lucide-react'
+import Link from 'next/link'
 
 export const columns: ColumnDef<Customer>[] = [
   {
@@ -186,9 +187,11 @@ export const columns: ColumnDef<Customer>[] = [
               Copiar email
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <Eye className="mr-2 h-4 w-4" />
-              Ver perfil
+            <DropdownMenuItem asChild>
+              <Link href={`/admin/customers/${customer.id}`}>
+                <Eye className="mr-2 h-4 w-4" />
+                Ver perfil
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuItem>
               <Mail className="mr-2 h-4 w-4" />

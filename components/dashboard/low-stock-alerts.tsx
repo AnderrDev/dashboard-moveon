@@ -1,7 +1,9 @@
+'use client'
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { AlertTriangle, Package } from 'lucide-react'
+import { AlertTriangle, Package, RefreshCw } from 'lucide-react'
 import { LowStockAlert } from '@/types/dashboard'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -18,9 +20,19 @@ export function LowStockAlerts({ alerts }: LowStockAlertsProps) {
           <AlertTriangle className="h-5 w-5 text-orange-500" />
           <span>Alertas de Inventario</span>
         </CardTitle>
-        {alerts.length > 0 && (
-          <Badge variant="destructive">{alerts.length}</Badge>
-        )}
+        <div className="flex items-center space-x-2">
+          {alerts.length > 0 && (
+            <Badge variant="destructive">{alerts.length}</Badge>
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => window.location.reload()}
+            className="h-8 w-8 p-0"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

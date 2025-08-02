@@ -14,6 +14,7 @@ import {
 import { Review } from '@/types/admin'
 import { MoreHorizontal, ArrowUpDown, CheckCircle, X, Trash2, Star } from 'lucide-react'
 import Image from 'next/image'
+import Link from 'next/link'
 
 export const columns: ColumnDef<Review>[] = [
   {
@@ -172,6 +173,12 @@ export const columns: ColumnDef<Review>[] = [
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+            <DropdownMenuItem asChild>
+              <Link href={`/admin/reviews/${review.id}`}>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Ver reseña
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => navigator.clipboard.writeText(review.comment)}
             >

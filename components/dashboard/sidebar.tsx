@@ -8,13 +8,10 @@ import {
   Package,
   ShoppingCart,
   Users,
-  BarChart3,
-  Settings,
   ChevronLeft,
   ChevronRight,
   Tag,
-  MessageSquare,
-  Truck
+  MessageSquare
 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -49,21 +46,6 @@ const navigation = [
     name: 'Reseñas',
     href: '/admin/reviews',
     icon: MessageSquare,
-  },
-  {
-    name: 'Envíos',
-    href: '/admin/shipping',
-    icon: Truck,
-  },
-  {
-    name: 'Reportes',
-    href: '/admin/reports',
-    icon: BarChart3,
-  },
-  {
-    name: 'Configuración',
-    href: '/admin/settings',
-    icon: Settings,
   },
 ]
 

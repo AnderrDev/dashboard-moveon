@@ -1,12 +1,13 @@
-'use client'
-
-import { useState } from 'react'
-import { useCustomers } from '@/hooks/use-customers'
+export const dynamic = 'force-dynamic'
+import { Suspense } from 'react'
+import { Metadata } from 'next'
+import { getCustomers, getCustomerStats } from '@/lib/data'
 import { DataTable } from '@/components/ui/data-table'
 import { columns } from './columns'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import { 
   Users, 
   UserCheck, 
@@ -14,7 +15,7 @@ import {
   DollarSign,
   Filter,
   Download,
-  Loader2,
+  TrendingUp,
   Mail
 } from 'lucide-react'
 import {
@@ -26,52 +27,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
-export default function CustomersPage() {
-  const { customers, loading, error } = useCustomers()
-  const [filter, setFilter] = useState<'all' | 'active' | 'inactive' | 'verified' | 'unverified'>('all')
+// Metadata estática para SEO
+export const metadata: Metadata = {
+  title: 'Clientes - Panel de Administración',
+  description: 'Gestiona todos los clientes de tu tienda desde el panel de administración',
+}
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-        <span className="ml-2 text-gray-600">Cargando clientes...</span>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Card className="p-6">
-          <CardContent>
-            <p className="text-red-600">{error}</p>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  // Filtrar clientes según el filtro seleccionado
-  const filteredCustomers = customers.filter(customer => {
-    switch (filter) {
-      case 'active':
-        return customer.is_active
-      case 'inactive':
-        return !customer.is_active
-      case 'verified':
-        return customer.email_verified
-      case 'unverified':
-        return !customer.email_verified
-      default:
-        return true
-    }
-  })
-
-  // Calcular estadísticas
-  const totalCustomers = customers.length
-  const activeCustomers = customers.filter(c => c.is_active).length
-  const verifiedCustomers = customers.filter(c => c.email_verified).length
-  const totalSpent = customers.reduce((sum, customer) => sum + customer.total_spent, 0)
+// Componente de carga para estadísticas
+async function CustomerStats() {
+  const stats = await getCustomerStats()
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-CO', {
@@ -82,157 +46,166 @@ export default function CustomersPage() {
   }
 
   return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Total Clientes</CardTitle>
+          <Users className="h-4 w-4 text-blue-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{stats.totalCustomers}</div>
+          <p className="text-xs text-muted-foreground mt-1">
+            {stats.activeCustomers} activos
+          </p>
+        </CardContent>
+      </Card>
+      
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Verificados</CardTitle>
+          <UserCheck className="h-4 w-4 text-green-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{stats.verifiedCustomers}</div>
+          <p className="text-xs text-muted-foreground mt-1">
+            {Math.round((stats.verifiedCustomers / stats.totalCustomers) * 100)}% del total
+          </p>
+        </CardContent>
+      </Card>
+      
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Total Gastado</CardTitle>
+          <DollarSign className="h-4 w-4 text-green-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Promedio: {formatCurrency(stats.averageOrderValue)}
+          </p>
+        </CardContent>
+      </Card>
+      
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Nuevos Este Mes</CardTitle>
+          <TrendingUp className="h-4 w-4 text-purple-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{stats.newCustomersThisMonth}</div>
+          <p className="text-xs text-muted-foreground mt-1">
+            +8% vs mes anterior
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// Componente de carga para la tabla de clientes
+async function CustomersTable() {
+  const { customers, total, page, totalPages } = await getCustomers({
+    page: 1,
+    limit: 20,
+    filters: { },
+    sort: { field: 'created_at', direction: 'desc' }
+  })
+  
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Clientes</CardTitle>
+        <CardDescription>
+          Lista completa de clientes registrados. Total: {total} clientes
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <DataTable 
+          columns={columns} 
+          data={customers}
+          searchKey="first_name"
+          searchPlaceholder="Buscar por nombre..."
+        />
+      </CardContent>
+    </Card>
+  )
+}
+
+// Componente de skeleton para carga
+function CustomerStatsSkeleton() {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <Card key={i}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <Skeleton className="h-4 w-24" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-8 w-16" />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+function CustomersTableSkeleton() {
+  return (
+    <Card>
+      <CardHeader>
+        <Skeleton className="h-6 w-32" />
+        <Skeleton className="h-4 w-64" />
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center space-x-4">
+              <Skeleton className="h-12 w-12 rounded-full" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// Página principal
+export default async function CustomersPage() {
+  return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Clientes</h1>
-          <p className="text-gray-600">Gestiona la base de datos de clientes</p>
+          <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
+          <p className="text-muted-foreground">
+            Gestiona la base de datos de clientes
+          </p>
         </div>
-        <div className="flex items-center space-x-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                <Download className="mr-2 h-4 w-4" />
-                Exportar
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuLabel>Formato de exportación</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Exportar como CSV</DropdownMenuItem>
-              <DropdownMenuItem>Exportar como Excel</DropdownMenuItem>
-              <DropdownMenuItem>Exportar como PDF</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button>
-            <Mail className="mr-2 h-4 w-4" />
-            Enviar Newsletter
-          </Button>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setFilter('all')}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Clientes</CardTitle>
-            <Users className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{totalCustomers}</div>
-            <p className="text-xs text-gray-500 mt-1">
-              {activeCustomers} activos, {totalCustomers - activeCustomers} inactivos
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setFilter('active')}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Clientes Activos</CardTitle>
-            <UserCheck className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{activeCustomers}</div>
-            <p className="text-xs text-gray-500 mt-1">
-              {((activeCustomers / totalCustomers) * 100).toFixed(1)}% del total
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setFilter('verified')}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Email Verificado</CardTitle>
-            <Mail className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{verifiedCustomers}</div>
-            <p className="text-xs text-gray-500 mt-1">
-              {((verifiedCustomers / totalCustomers) * 100).toFixed(1)}% verificados
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Valor Total</CardTitle>
-            <DollarSign className="h-4 w-4 text-emerald-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
-              {formatCurrency(totalSpent)}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Gastado por todos los clientes
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <div className="flex items-center space-x-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline">
-              <Filter className="mr-2 h-4 w-4" />
-              Filtros
-              {filter !== 'all' && (
-                <Badge variant="secondary" className="ml-2">
-                  {filter === 'active' && 'Activos'}
-                  {filter === 'inactive' && 'Inactivos'}
-                  {filter === 'verified' && 'Verificados'}
-                  {filter === 'unverified' && 'No Verificados'}
-                </Badge>
-              )}
+              <Download className="mr-2 h-4 w-4" />
+              Exportar
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuLabel>Filtrar por estado</DropdownMenuLabel>
+            <DropdownMenuLabel>Formato de exportación</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => setFilter('all')}>
-              Todos los clientes
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilter('active')}>
-              Solo activos
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilter('inactive')}>
-              Solo inactivos
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilter('verified')}>
-              Email verificado
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilter('unverified')}>
-              Email no verificado
-            </DropdownMenuItem>
+            <DropdownMenuItem>Exportar como CSV</DropdownMenuItem>
+            <DropdownMenuItem>Exportar como Excel</DropdownMenuItem>
+            <DropdownMenuItem>Exportar como PDF</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        
-        {filter !== 'all' && (
-          <Button variant="ghost" size="sm" onClick={() => setFilter('all')}>
-            Limpiar filtros
-          </Button>
-        )}
       </div>
-
-      {/* Customers Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            Lista de Clientes 
-            <Badge variant="secondary" className="ml-2">
-              {filteredCustomers.length}
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <DataTable 
-            columns={columns} 
-            data={filteredCustomers}
-            searchKey="email"
-            searchPlaceholder="Buscar por email..."
-          />
-        </CardContent>
-      </Card>
+      <Suspense fallback={<CustomerStatsSkeleton />}>
+        <CustomerStats />
+      </Suspense>
+      <Suspense fallback={<CustomersTableSkeleton />}>
+        <CustomersTable />
+      </Suspense>
     </div>
   )
 }
