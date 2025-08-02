@@ -4,9 +4,6 @@ const nextConfig = {
     config.module.exprContextCritical = false;
     return config;
   },
-  experimental: {
-    serverActions: true,
-  },
   eslint: {
     ignoreDuringBuilds: true,
   },

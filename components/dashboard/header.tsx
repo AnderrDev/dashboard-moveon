@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell, Search, Settings } from 'lucide-react'
+import { Search, User, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Badge } from '@/components/ui/badge'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 export function Header() {
   return (
@@ -29,81 +29,30 @@ export function Header() {
           </div>
         </div>
 
-        {/* Actions */}
+        {/* User Profile */}
         <div className="flex items-center space-x-4">
-          {/* Notifications */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="relative">
-                <Bell className="h-5 w-5" />
-                <Badge 
-                  variant="destructive" 
-                  className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-xs"
-                >
-                  3
-                </Badge>
+              <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 hover:bg-gray-100 transition-colors">
+                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
+                  <User className="h-5 w-5 text-white" />
+                </div>
+                <div className="absolute -bottom-1 -right-1 h-3 w-3 bg-green-500 rounded-full border-2 border-white"></div>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
-              <DropdownMenuLabel>Notificaciones</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="flex flex-col items-start p-4">
-                <div className="font-medium">Bajo inventario</div>
-                <div className="text-sm text-gray-500">
-                  Proteína Whey Gold tiene solo 2 unidades
-                </div>
-                <div className="text-xs text-gray-400 mt-1">Hace 5 minutos</div>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="flex flex-col items-start p-4">
-                <div className="font-medium">Nuevo pedido</div>
-                <div className="text-sm text-gray-500">
-                  Pedido #ORD-2024-001 por $89.990
-                </div>
-                <div className="text-xs text-gray-400 mt-1">Hace 10 minutos</div>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="flex flex-col items-start p-4">
-                <div className="font-medium">Reseña pendiente</div>
-                <div className="text-sm text-gray-500">
-                  Nueva reseña requiere moderación
-                </div>
-                <div className="text-xs text-gray-400 mt-1">Hace 1 hora</div>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Settings */}
-          <Button variant="ghost" size="sm">
-            <Settings className="h-5 w-5" />
-          </Button>
-
-          {/* Profile */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center">
-                  <span className="text-sm font-medium text-white">A</span>
-                </div>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end">
+            <DropdownMenuContent className="w-64" align="end">
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">Admin User</p>
+                  <p className="text-sm font-semibold leading-none">Admin User</p>
                   <p className="text-xs leading-none text-muted-foreground">
                     admin@supplements.com
                   </p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                Perfil
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                Configuración
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                Cerrar sesión
+              <DropdownMenuItem className="flex items-center space-x-2 cursor-pointer text-red-600 hover:text-red-700">
+                <LogOut className="h-4 w-4" />
+                <span>Cerrar sesión</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
