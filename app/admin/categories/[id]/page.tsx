@@ -1,313 +1,320 @@
-'use client'
-
-import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+export const dynamic = 'force-dynamic'
+import { Suspense } from 'react'
+import { notFound } from 'next/navigation'
+import { Metadata } from 'next'
+import { getCategoryById } from '@/lib/data'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { 
-  ArrowLeft, 
-  Edit, 
-  Trash2, 
-  Tag, 
-  Package,
-  ToggleLeft,
-  ToggleRight,
-  Eye,
-  Loader2
-} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ArrowLeft, Edit, Tag, Calendar, Package } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { CategoryWithProducts } from '@/types/dashboard'
-import { mockCategories } from '@/lib/mock-data'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
 
-export default function CategoryDetailPage() {
-  const params = useParams()
-  const router = useRouter()
-  const [category, setCategory] = useState<CategoryWithProducts | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const loadCategory = async () => {
-      setLoading(true)
-      // Simular carga de API
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      const foundCategory = mockCategories.find(c => c.id === params.id)
-      setCategory(foundCategory || null)
-      setLoading(false)
-    }
-
-    if (params.id) {
-      loadCategory()
-    }
-  }, [params.id])
-
-  const handleDelete = async () => {
-    // Simular eliminación
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    router.push('/admin/categories')
-  }
-
-  const toggleStatus = async () => {
-    if (category) {
-      setCategory({ ...category, is_active: !category.is_active })
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-        <span className="ml-2 text-gray-600">Cargando categoría...</span>
-      </div>
-    )
-  }
-
+// Generar metadata dinámica
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const category = await getCategoryById(params.id)
+  
   if (!category) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <Tag className="h-16 w-16 text-gray-300 mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Categoría no encontrada</h2>
-        <p className="text-gray-600 mb-4">La categoría que buscas no existe o ha sido eliminada.</p>
-        <Link href="/admin/categories">
-          <Button>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Volver a categorías
-          </Button>
-        </Link>
-      </div>
-    )
+    return {
+      title: 'Categoría no encontrada',
+      description: 'La categoría que buscas no existe'
+    }
   }
 
+  return {
+    title: `${category.name} - Detalles de la Categoría`,
+    description: category.description || `Detalles de la categoría ${category.name}`,
+  }
+}
+
+// Componente skeleton para la página de detalle
+function CategoryDetailSkeleton() {
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header skeleton */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <Link href="/admin/categories">
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Volver
-            </Button>
-          </Link>
+          <Skeleton className="h-10 w-32" />
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900">{category.name}</h1>
-            <p className="text-gray-600">/{category.slug}</p>
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-32 mt-2" />
           </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" onClick={toggleStatus}>
-            {category.is_active ? (
-              <>
-                <ToggleLeft className="mr-2 h-4 w-4" />
-                Desactivar
-              </>
-            ) : (
-              <>
-                <ToggleRight className="mr-2 h-4 w-4" />
-                Activar
-              </>
-            )}
-          </Button>
-          <Link href={`/admin/categories/${category.id}/edit`}>
-            <Button>
-              <Edit className="mr-2 h-4 w-4" />
-              Editar
-            </Button>
-          </Link>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive">
-                <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Esta acción no se puede deshacer. La categoría será eliminada permanentemente.
-                  {category.products_count > 0 && (
-                    <span className="block mt-2 text-red-600 font-medium">
-                      Advertencia: Esta categoría tiene {category.products_count} productos asociados.
-                    </span>
-                  )}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
-                  Eliminar
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
+        <Skeleton className="h-10 w-40" />
       </div>
 
-      {/* Status Badge */}
-      <div className="flex items-center space-x-2">
-        <Badge variant={category.is_active ? 'default' : 'secondary'}>
-          {category.is_active ? 'Activa' : 'Inactiva'}
-        </Badge>
-        <Badge variant="outline">
-          <Package className="mr-1 h-3 w-3" />
-          {category.products_count} productos
-        </Badge>
-        <Badge variant="outline">
-          Orden: {category.sort_order}
-        </Badge>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Category Image */}
-        <div className="lg:col-span-1">
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Información principal skeleton */}
+        <div className="space-y-6">
+          {/* Imagen skeleton */}
           <Card>
             <CardHeader>
-              <CardTitle>Imagen</CardTitle>
+              <Skeleton className="h-6 w-32" />
             </CardHeader>
             <CardContent>
-              <div className="aspect-square rounded-lg overflow-hidden">
-                {category.image_url ? (
-                  <Image
-                    src={category.image_url}
-                    alt={category.name}
-                    width={400}
-                    height={400}
-                    className="object-cover w-full h-full"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                    <Tag className="h-16 w-16 text-gray-300" />
+              <Skeleton className="aspect-video w-full max-w-md" />
+            </CardContent>
+          </Card>
+
+          {/* Información básica skeleton */}
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-32" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i}>
+                    <Skeleton className="h-4 w-20 mb-2" />
+                    <Skeleton className="h-4 w-24" />
                   </div>
-                )}
+                ))}
+              </div>
+              <div>
+                <Skeleton className="h-4 w-24 mb-2" />
+                <Skeleton className="h-16 w-full" />
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Category Details */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Basic Info */}
+        {/* Estadísticas y fechas skeleton */}
+        <div className="space-y-6">
+          {/* Estadísticas skeleton */}
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-32" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="text-center">
+                <Skeleton className="h-8 w-16 mx-auto mb-2" />
+                <Skeleton className="h-4 w-32 mx-auto" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Fechas skeleton */}
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-40" />
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <div key={i}>
+                    <Skeleton className="h-4 w-24 mb-2" />
+                    <Skeleton className="h-4 w-32" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Acciones rápidas skeleton */}
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-32" />
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full" />
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Componente para mostrar la información de la categoría
+async function CategoryDetails({ categoryId }: { categoryId: string }) {
+  const category = await getCategoryById(categoryId)
+  
+  if (!category) {
+    notFound()
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header con navegación */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Link href="/admin/categories">
+            <Button variant="ghost" size="sm">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Volver a Categorías
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">{category.name}</h1>
+            <p className="text-muted-foreground">Slug: {category.slug}</p>
+          </div>
+        </div>
+        <Link href={`/admin/categories/${categoryId}/edit`}>
+          <Button>
+            <Edit className="mr-2 h-4 w-4" />
+            Editar Categoría
+          </Button>
+        </Link>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Información principal */}
+        <div className="space-y-6">
+          {/* Imagen de la categoría */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Imagen de la Categoría</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {category.image_url ? (
+                <div className="relative aspect-video w-full max-w-md">
+                  <Image
+                    src={category.image_url}
+                    alt={category.name}
+                    fill
+                    className="rounded-lg object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="aspect-video w-full max-w-md bg-gray-200 rounded-lg flex items-center justify-center">
+                  <span className="text-gray-400">Sin imagen</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Información básica */}
           <Card>
             <CardHeader>
               <CardTitle>Información Básica</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <h3 className="font-medium text-gray-900 mb-1">Descripción</h3>
-                <p className="text-gray-600">{category.description || 'Sin descripción'}</p>
-              </div>
-              
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <h3 className="font-medium text-gray-900 mb-1">Slug</h3>
-                  <p className="text-gray-600 font-mono">/{category.slug}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Nombre</label>
+                  <p className="text-sm">{category.name}</p>
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-900 mb-1">Orden</h3>
-                  <p className="text-gray-600">{category.sort_order}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Slug</label>
+                  <p className="text-sm font-mono">{category.slug}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Orden</label>
+                  <p className="text-sm">{category.sort_order}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Estado</label>
+                  <p className="text-sm">
+                    <Badge variant={category.is_active ? 'default' : 'secondary'}>
+                      {category.is_active ? 'Activa' : 'Inactiva'}
+                    </Badge>
+                  </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              {category.description && (
                 <div>
-                  <h3 className="font-medium text-gray-900 mb-1">Fecha de Creación</h3>
-                  <p className="text-gray-600">
-                    {new Date(category.created_at).toLocaleDateString('es-ES', {
-                      day: '2-digit',
-                      month: 'long',
-                      year: 'numeric'
-                    })}
-                  </p>
+                  <label className="text-sm font-medium text-muted-foreground">Descripción</label>
+                  <p className="text-sm mt-1">{category.description}</p>
                 </div>
-                <div>
-                  <h3 className="font-medium text-gray-900 mb-1">Última Actualización</h3>
-                  <p className="text-gray-600">
-                    {new Date(category.updated_at).toLocaleDateString('es-ES', {
-                      day: '2-digit',
-                      month: 'long',
-                      year: 'numeric'
-                    })}
-                  </p>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
+        </div>
 
-          {/* Products Stats */}
+        {/* Estadísticas y fechas */}
+        <div className="space-y-6">
+          {/* Estadísticas */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <Package className="mr-2 h-5 w-5" />
-                Productos en esta Categoría
+                <Package className="mr-2 h-4 w-4" />
+                Estadísticas
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <div className="text-4xl font-bold text-blue-600 mb-2">
+            <CardContent className="space-y-4">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-blue-600">
                   {category.products_count}
                 </div>
-                <p className="text-gray-600 mb-4">
-                  Productos en la categoría "{category.name}"
-                </p>
-                {category.products_count > 0 && (
-                  <Link href={`/admin/products?category=${category.id}`}>
-                    <Button variant="outline">
-                      <Eye className="mr-2 h-4 w-4" />
-                      Ver Productos
-                    </Button>
-                  </Link>
-                )}
+                <p className="text-sm text-gray-600">Productos en esta categoría</p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Parent/Children Categories */}
-          {(category.parent_id || category.children) && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Jerarquía</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {category.parent_id && (
-                  <div>
-                    <h3 className="font-medium text-gray-900 mb-2">Categoría Padre</h3>
-                    <Badge variant="outline">
-                      {mockCategories.find(c => c.id === category.parent_id)?.name || 'Categoría padre'}
-                    </Badge>
-                  </div>
-                )}
-                
-                {category.children && category.children.length > 0 && (
-                  <div>
-                    <h3 className="font-medium text-gray-900 mb-2">Subcategorías</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {category.children.map((child) => (
-                        <Badge key={child.id} variant="outline">
-                          {child.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+          {/* Fechas */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Calendar className="mr-2 h-4 w-4" />
+                Información de Fechas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Fecha de Creación</label>
+                  <p className="text-sm">
+                    {new Date(category.created_at).toLocaleDateString('es-CO', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Última Actualización</label>
+                  <p className="text-sm">
+                    {new Date(category.updated_at).toLocaleDateString('es-CO', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Acciones rápidas */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Acciones Rápidas</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Link href={`/admin/categories/${categoryId}/edit`} className="w-full">
+                <Button variant="outline" className="w-full">
+                  <Edit className="mr-2 h-4 w-4" />
+                  Editar Categoría
+                </Button>
+              </Link>
+              <Link href="/admin/products/new" className="w-full">
+                <Button variant="outline" className="w-full">
+                  <Package className="mr-2 h-4 w-4" />
+                  Agregar Producto
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
+  )
+}
+
+// Página principal
+export default async function CategoryDetailPage({ params }: { params: { id: string } }) {
+  return (
+    <Suspense fallback={<CategoryDetailSkeleton />}>
+      <CategoryDetails categoryId={params.id} />
+    </Suspense>
   )
 }

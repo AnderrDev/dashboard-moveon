@@ -430,3 +430,97 @@ export async function getCategories(options: CategoriesQueryOptions = {}): Promi
     }
   }
 } 
+
+// Función para crear una nueva categoría
+export async function createCategory(data: {
+  name: string
+  slug: string
+  description?: string
+  image_url?: string
+  sort_order: number
+  is_active?: boolean
+}): Promise<CategoryWithProducts | null> {
+  try {
+    const supabase = createServerClient()
+    
+    // Preparar datos para inserción
+    const insertData = {
+      name: data.name,
+      slug: data.slug,
+      description: data.description,
+      image_url: data.image_url,
+      sort_order: data.sort_order,
+      is_active: data.is_active ?? true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+
+    const { data: newCategory, error } = await supabase
+      .from('categories')
+      .insert(insertData)
+      .select('*')
+      .single()
+
+    if (error) {
+      console.error('Error creating category:', error)
+      throw new Error('Error al crear la categoría')
+    }
+
+    if (!newCategory) {
+      return null
+    }
+
+    return mapCategoryRowToCategoryWithProducts(newCategory, 0)
+
+  } catch (error) {
+    console.error('Error in createCategory:', error)
+    throw error
+  }
+}
+
+// Función para actualizar una categoría
+export async function updateCategory(id: string, data: {
+  name?: string
+  slug?: string
+  description?: string
+  image_url?: string
+  sort_order?: number
+  is_active?: boolean
+}): Promise<CategoryWithProducts | null> {
+  try {
+    const supabase = createServerClient()
+    
+    // Preparar datos para actualización
+    const updateData = {
+      name: data.name,
+      slug: data.slug,
+      description: data.description,
+      image_url: data.image_url,
+      sort_order: data.sort_order,
+      is_active: data.is_active,
+      updated_at: new Date().toISOString()
+    }
+
+    const { data: updatedCategory, error } = await supabase
+      .from('categories')
+      .update(updateData)
+      .eq('id', id)
+      .select('*')
+      .single()
+
+    if (error) {
+      console.error('Error updating category:', error)
+      throw new Error('Error al actualizar la categoría')
+    }
+
+    if (!updatedCategory) {
+      return null
+    }
+
+    return mapCategoryRowToCategoryWithProducts(updatedCategory, 0)
+
+  } catch (error) {
+    console.error('Error in updateCategory:', error)
+    throw error
+  }
+} 
