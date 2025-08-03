@@ -1,49 +1,36 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { mockReportData } from '@/lib/mock-admin-data'
-import { ReportData } from '@/types/admin'
+import { getReports } from '@/lib/data'
 
 export function useReports() {
-  const [reportData, setReportData] = useState<ReportData[]>([])
+  const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const loadReports = async () => {
+  const loadReports = async () => {
+    try {
       setLoading(true)
+      setError(null)
       
-      // Simular delay de API
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      try {
-        setReportData(mockReportData)
-      } catch (err) {
-        console.error('Error loading reports:', err)
-        setError('Error cargando reportes')
-      } finally {
-        setLoading(false)
-      }
+      const reportsData = await getReports()
+      setReports(reportsData)
+    } catch (err) {
+      console.error('Error loading reports:', err)
+      setError('Error al cargar reportes')
+    } finally {
+      setLoading(false)
     }
-    
+  }
+
+  useEffect(() => {
     loadReports()
   }, [])
 
-  const generateReport = async (period: string) => {
-    setLoading(true)
-    // Simular generación de reporte
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    setLoading(false)
-  }
-
   return {
-    reportData,
+    reports,
     loading,
     error,
-    generateReport,
-    refetch: () => {
-      setLoading(true)
-      setTimeout(() => setLoading(false), 1000)
-    }
+    refetch: loadReports
   }
 }

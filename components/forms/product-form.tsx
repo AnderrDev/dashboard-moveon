@@ -31,7 +31,6 @@ import Link from 'next/link'
 import { ProductWithCategory, CategoryWithProducts } from '@/types/dashboard'
 import { updateProductAction, createProductAction } from '@/lib/actions/products'
 import { useToast } from '@/hooks/use-toast'
-import { mockCategories } from '@/lib/mock-data'
 
 const productSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
@@ -218,7 +217,7 @@ export function ProductForm({ mode, product, categories = [], onSubmit }: Produc
     return `${initials}-${random}`
   }
 
-  const availableCategories = categories.length > 0 ? categories : mockCategories
+  const availableCategories = categories.length > 0 ? categories : []
   const backUrl = isEditMode ? `/admin/products/${product?.id}` : '/admin/products'
   const submitButtonText = isEditMode ? 'Guardar Cambios' : 'Crear Producto'
   const submitButtonIcon = isEditMode ? <Save className="mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />
@@ -653,7 +652,7 @@ export function ProductForm({ mode, product, categories = [], onSubmit }: Produc
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {availableCategories.map((category) => (
+                            {availableCategories.map((category: CategoryWithProducts) => (
                               <SelectItem key={category.id} value={category.id}>
                                 {category.name}
                               </SelectItem>

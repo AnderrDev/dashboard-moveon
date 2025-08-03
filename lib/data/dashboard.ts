@@ -1,5 +1,5 @@
 import { createServerClient } from '@/lib/supabase'
-import { getProducts } from './products'
+import { getProducts, getLowStockProducts } from './products'
 import { getOrders } from './orders'
 import { getCustomers } from './customers'
 import { getReviews } from './reviews'
@@ -10,86 +10,6 @@ import {
   RecentOrder, 
   LowStockAlert 
 } from '@/types/dashboard'
-
-// Datos mock para fallback
-const mockStats: DashboardStats = {
-  totalRevenue: 12500000,
-  totalOrders: 342,
-  totalCustomers: 156,
-  averageOrderValue: 36550,
-  revenueGrowth: 12.5,
-  ordersGrowth: 8.3,
-  customersGrowth: 15.2,
-  conversionRate: 3.8
-}
-
-const mockSalesData: SalesData[] = [
-  { date: '2024-01-01', revenue: 450000, orders: 12 },
-  { date: '2024-01-02', revenue: 520000, orders: 15 },
-  { date: '2024-01-03', revenue: 380000, orders: 10 },
-  { date: '2024-01-04', revenue: 610000, orders: 18 },
-  { date: '2024-01-05', revenue: 490000, orders: 14 },
-  { date: '2024-01-06', revenue: 720000, orders: 22 },
-  { date: '2024-01-07', revenue: 680000, orders: 20 }
-]
-
-const mockTopProducts: TopProduct[] = [
-  { id: '1', name: 'Proteína Whey Gold Standard', image: 'https://via.placeholder.com/100', revenue: 2250000, units_sold: 45, growth: 12.5 },
-  { id: '2', name: 'Creatina Monohidratada', image: 'https://via.placeholder.com/100', revenue: 1900000, units_sold: 38, growth: 8.3 },
-  { id: '3', name: 'BCAA Aminoácidos', image: 'https://via.placeholder.com/100', revenue: 1600000, units_sold: 32, growth: 15.2 },
-  { id: '4', name: 'Pre-Workout Explosive', image: 'https://via.placeholder.com/100', revenue: 1400000, units_sold: 28, growth: 6.7 },
-  { id: '5', name: 'Omega-3 Premium', image: 'https://via.placeholder.com/100', revenue: 1250000, units_sold: 25, growth: 9.1 }
-]
-
-const mockRecentOrders: RecentOrder[] = [
-  { 
-    id: '1', 
-    order_number: 'ORD-001', 
-    customer: { name: 'Juan Pérez', email: 'juan@example.com' }, 
-    total: 125000, 
-    status: 'completed', 
-    created_at: '2024-01-15T10:30:00Z' 
-  },
-  { 
-    id: '2', 
-    order_number: 'ORD-002', 
-    customer: { name: 'María García', email: 'maria@example.com' }, 
-    total: 89000, 
-    status: 'processing', 
-    created_at: '2024-01-15T09:15:00Z' 
-  },
-  { 
-    id: '3', 
-    order_number: 'ORD-003', 
-    customer: { name: 'Carlos López', email: 'carlos@example.com' }, 
-    total: 156000, 
-    status: 'shipped', 
-    created_at: '2024-01-15T08:45:00Z' 
-  },
-  { 
-    id: '4', 
-    order_number: 'ORD-004', 
-    customer: { name: 'Ana Rodríguez', email: 'ana@example.com' }, 
-    total: 67000, 
-    status: 'pending', 
-    created_at: '2024-01-15T08:20:00Z' 
-  },
-  { 
-    id: '5', 
-    order_number: 'ORD-005', 
-    customer: { name: 'Luis Martínez', email: 'luis@example.com' }, 
-    total: 198000, 
-    status: 'completed', 
-    created_at: '2024-01-15T07:55:00Z' 
-  }
-]
-
-const mockLowStockAlerts: LowStockAlert[] = [
-  { id: '1', name: 'Proteína Whey Gold Standard', sku: 'PROT-001', current_stock: 5, threshold: 10, image: 'https://via.placeholder.com/100' },
-  { id: '2', name: 'Creatina Monohidratada', sku: 'CREA-001', current_stock: 3, threshold: 8, image: 'https://via.placeholder.com/100' },
-  { id: '3', name: 'BCAA Aminoácidos', sku: 'BCAA-001', current_stock: 7, threshold: 12, image: 'https://via.placeholder.com/100' },
-  { id: '4', name: 'Pre-Workout Explosive', sku: 'PREW-001', current_stock: 2, threshold: 5, image: 'https://via.placeholder.com/100' }
-]
 
 // Función para obtener estadísticas del dashboard
 export async function getDashboardStats(): Promise<DashboardStats> {
@@ -103,7 +23,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
     if (ordersError) {
       console.error('Error fetching orders for stats:', ordersError)
-      return mockStats
+      throw new Error('Error al obtener pedidos para estadísticas')
     }
 
     const { data: customers, error: customersError } = await supabase
@@ -112,7 +32,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
     if (customersError) {
       console.error('Error fetching customers for stats:', customersError)
-      return mockStats
+      throw new Error('Error al obtener clientes para estadísticas')
     }
 
     const { data: products, error: productsError } = await supabase
@@ -121,7 +41,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
     if (productsError) {
       console.error('Error fetching products for stats:', productsError)
-      return mockStats
+      throw new Error('Error al obtener productos para estadísticas')
     }
 
     // Calcular estadísticas
@@ -148,7 +68,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     }
   } catch (error) {
     console.error('Error in getDashboardStats:', error)
-    return mockStats
+    throw error
   }
 }
 
@@ -169,7 +89,7 @@ export async function getSalesData(): Promise<SalesData[]> {
 
     if (error) {
       console.error('Error fetching sales data:', error)
-      return mockSalesData
+      throw new Error('Error al obtener datos de ventas')
     }
 
     // Agrupar por fecha
@@ -193,7 +113,7 @@ export async function getSalesData(): Promise<SalesData[]> {
     return salesData
   } catch (error) {
     console.error('Error in getSalesData:', error)
-    return mockSalesData
+    throw error
   }
 }
 
@@ -213,7 +133,7 @@ export async function getTopProducts(): Promise<TopProduct[]> {
 
     if (error) {
       console.error('Error fetching top products:', error)
-      return mockTopProducts
+      throw new Error('Error al obtener productos más vendidos')
     }
 
     // Agrupar por producto
@@ -251,7 +171,7 @@ export async function getTopProducts(): Promise<TopProduct[]> {
     return topProducts
   } catch (error) {
     console.error('Error in getTopProducts:', error)
-    return mockTopProducts
+    throw error
   }
 }
 
@@ -274,7 +194,7 @@ export async function getRecentOrders(): Promise<RecentOrder[]> {
 
     if (error) {
       console.error('Error fetching recent orders:', error)
-      return mockRecentOrders
+      throw new Error('Error al obtener pedidos recientes')
     }
 
     const recentOrders: RecentOrder[] = orders?.map(order => {
@@ -295,44 +215,29 @@ export async function getRecentOrders(): Promise<RecentOrder[]> {
     return recentOrders
   } catch (error) {
     console.error('Error in getRecentOrders:', error)
-    return mockRecentOrders
+    throw error
   }
 }
 
 // Función para obtener alertas de stock bajo
 export async function getLowStockAlerts(): Promise<LowStockAlert[]> {
   try {
-    const supabase = createServerClient()
-    // Obtener todos los productos activos
-    const { data: products, error } = await supabase
-      .from('products')
-      .select('id, name, stock_quantity, low_stock_threshold, images, is_active')
-      .eq('is_active', true)
-
-    if (error) {
-      console.error('Error fetching low stock alerts:', error)
-      return []
-    }
-
-    // Filtrar productos con stock bajo en JS (igual que la tabla de productos)
-    const lowStockProducts = (products || []).filter(
-      (p) => typeof p.stock_quantity === 'number' && typeof p.low_stock_threshold === 'number' && p.stock_quantity <= p.low_stock_threshold
-    )
-    .sort((a, b) => a.stock_quantity - b.stock_quantity)
-    .slice(0, 10)
-
+    // Reutilizar la función existente de productos
+    const lowStockProducts = await getLowStockProducts(10)
+    
+    // Transformar a formato de alertas
     const lowStockAlerts: LowStockAlert[] = lowStockProducts.map(product => ({
       id: product.id,
       name: product.name,
-      sku: `SKU-${product.id}`,
-      current_stock: product.stock_quantity || 0,
-      threshold: product.low_stock_threshold || 0,
+      sku: product.sku,
+      current_stock: product.stock_quantity,
+      threshold: product.low_stock_threshold,
       image: product.images?.[0]
     }))
 
     return lowStockAlerts
   } catch (error) {
     console.error('Error in getLowStockAlerts:', error)
-    return []
+    throw error
   }
 } 

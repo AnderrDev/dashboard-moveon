@@ -1,5 +1,4 @@
 import { createServerClient } from '@/lib/supabase'
-import { mockCategories } from '@/lib/mock-data'
 import { CategoryWithProducts } from '@/types/dashboard'
 import { Database } from '@/types/supabase'
 
@@ -203,8 +202,7 @@ export async function getMainCategories(): Promise<CategoryWithProducts[]> {
 
   } catch (error) {
     console.error('Error in getMainCategories:', error)
-    // Fallback a datos mock
-    return mockCategories.filter(c => !c.parent_id && c.is_active)
+    throw error
   }
 }
 
@@ -220,8 +218,7 @@ export async function getSubcategories(parentId: string): Promise<CategoryWithPr
 
   } catch (error) {
     console.error('Error in getSubcategories:', error)
-    // Fallback a datos mock
-    return mockCategories.filter(c => c.parent_id === parentId && c.is_active)
+    throw error
   }
 }
 
@@ -265,33 +262,7 @@ export async function getCategoryTree(): Promise<CategoryWithProducts[]> {
 
   } catch (error) {
     console.error('Error in getCategoryTree:', error)
-    // Fallback a datos mock
-    const categoryMap = new Map<string, CategoryWithProducts>()
-    const rootCategories: CategoryWithProducts[] = []
-
-    mockCategories.forEach(category => {
-      categoryMap.set(category.id, { ...category, children: [] })
-    })
-
-    mockCategories.forEach(category => {
-      const mappedCategory = categoryMap.get(category.id)!
-      
-      if (category.parent_id) {
-        const parent = categoryMap.get(category.parent_id)
-        if (parent) {
-          parent.children = parent.children || []
-          parent.children.push({
-            id: mappedCategory.id,
-            name: mappedCategory.name,
-            slug: mappedCategory.slug
-          })
-        }
-      } else {
-        rootCategories.push(mappedCategory)
-      }
-    })
-
-    return rootCategories
+    throw error
   }
 }
 
@@ -308,14 +279,7 @@ export async function searchCategories(searchTerm: string, limit: number = 20): 
 
   } catch (error) {
     console.error('Error in searchCategories:', error)
-    // Fallback a datos mock
-    const searchLower = searchTerm.toLowerCase()
-    return mockCategories.filter(c => 
-      c.is_active && (
-        c.name.toLowerCase().includes(searchLower) ||
-        c.description?.toLowerCase().includes(searchLower)
-      )
-    ).slice(0, limit)
+    throw error
   }
 }
 
@@ -350,21 +314,11 @@ export async function getCategoryStats(): Promise<{
 
   } catch (error) {
     console.error('Error in getCategoryStats:', error)
-    // Fallback a datos mock
-    const activeCategories = mockCategories.filter(c => c.is_active)
-    const mainCategories = mockCategories.filter(c => !c.parent_id)
-    const subcategories = mockCategories.filter(c => c.parent_id)
-
-    return {
-      totalCategories: mockCategories.length,
-      activeCategories: activeCategories.length,
-      mainCategories: mainCategories.length,
-      subcategories: subcategories.length
-    }
+    throw error
   }
 }
 
-// Función principal para obtener categorías (con fallback a mock)
+// Función principal para obtener categorías
 export async function getCategories(options: CategoriesQueryOptions = {}): Promise<{
   categories: CategoryWithProducts[]
   total: number
@@ -372,64 +326,12 @@ export async function getCategories(options: CategoriesQueryOptions = {}): Promi
   totalPages: number
 }> {
   try {
-    // Intentar obtener datos de la base de datos
     return await getCategoriesFromDatabase(options)
   } catch (error) {
-    console.warn('Falling back to mock data due to database error:', error)
-    
-    // Fallback a datos mock
-    const { page = 1, limit = 20, filters = {} } = options
-    
-    let filteredCategories = mockCategories
-
-    // Aplicar filtros básicos a los datos mock
-    if (filters.is_active !== undefined) {
-      filteredCategories = filteredCategories.filter(c => c.is_active === filters.is_active)
-    }
-
-    if (filters.parent_id !== undefined) {
-      if (filters.parent_id === null) {
-        filteredCategories = filteredCategories.filter(c => !c.parent_id)
-      } else {
-        filteredCategories = filteredCategories.filter(c => c.parent_id === filters.parent_id)
-      }
-    }
-
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase()
-      filteredCategories = filteredCategories.filter(c => 
-        c.name.toLowerCase().includes(searchLower) ||
-        c.description?.toLowerCase().includes(searchLower)
-      )
-    }
-
-    // Aplicar ordenamiento
-    if (options.sort) {
-      filteredCategories.sort((a, b) => {
-        const aValue = a[options.sort!.field]
-        const bValue = b[options.sort!.field]
-        
-        if (options.sort!.direction === 'asc') {
-          return aValue < bValue ? -1 : aValue > bValue ? 1 : 0
-        } else {
-          return aValue > bValue ? -1 : aValue < bValue ? 1 : 0
-        }
-      })
-    }
-
-    const total = filteredCategories.length
-    const from = (page - 1) * limit
-    const to = from + limit
-    const paginatedCategories = filteredCategories.slice(from, to)
-
-    return {
-      categories: paginatedCategories,
-      total,
-      page,
-      totalPages: Math.ceil(total / limit)
-    }
+    console.error('Error in getCategories:', error)
+    throw error
   }
-} 
+}
 
 // Función para crear una nueva categoría
 export async function createCategory(data: {

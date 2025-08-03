@@ -1,18 +1,23 @@
 import { createServerClient } from '@/lib/supabase'
 import { Review } from '@/types/admin'
+import { Database } from '@/types/supabase'
 
-// Tipos para filtros y opciones de consulta
+type ReviewRow = Database['public']['Tables']['product_reviews']['Row']
+type UserRow = Database['public']['Tables']['users']['Row']
+type ProductRow = Database['public']['Tables']['products']['Row']
+
+// Tipos para las consultas de reseñas
 export interface ReviewFilters {
   is_approved?: boolean
   verified_purchase?: boolean
   rating?: number
+  product_id?: string
+  user_id?: string
   search?: string
-  date_from?: string
-  date_to?: string
 }
 
 export interface ReviewSortOptions {
-  field: 'created_at' | 'rating' | 'title' | 'product_name'
+  field: 'created_at' | 'rating' | 'updated_at'
   direction: 'asc' | 'desc'
 }
 
@@ -23,54 +28,16 @@ export interface ReviewsQueryOptions {
   sort?: ReviewSortOptions
 }
 
-// Datos mock básicos para fallback
-const mockReviews: Review[] = [
-  {
-    id: '1',
-    product_id: '1',
-    product_name: 'Producto de Prueba',
-    product_image: 'https://via.placeholder.com/100',
-    user_id: '1',
-    customer_name: 'Juan Pérez',
-    customer_email: 'juan@example.com',
-    order_id: '1',
-    rating: 5,
-    title: 'Excelente producto',
-    comment: 'Muy buena calidad y envío rápido. Lo recomiendo totalmente.',
-    verified_purchase: true,
-    is_approved: true,
-    created_at: '2024-01-15T10:00:00Z',
-    updated_at: '2024-01-15T10:00:00Z'
-  },
-  {
-    id: '2',
-    product_id: '2',
-    product_name: 'Otro Producto',
-    product_image: 'https://via.placeholder.com/100',
-    user_id: '2',
-    customer_name: 'María García',
-    customer_email: 'maria@example.com',
-    order_id: '2',
-    rating: 4,
-    title: 'Buen producto',
-    comment: 'Cumple con las expectativas. Buena relación calidad-precio.',
-    verified_purchase: true,
-    is_approved: false,
-    created_at: '2024-01-10T15:30:00Z',
-    updated_at: '2024-01-10T15:30:00Z'
-  }
-]
-
-// Función para mapear datos de la base de datos
-function mapReviewRowToReview(review: any): Review {
+// Función para convertir ReviewRow a Review
+function mapReviewRowToReview(
+  review: ReviewRow,
+  user?: UserRow,
+  product?: ProductRow
+): Review {
   return {
     id: review.id,
     product_id: review.product_id,
-    product_name: review.product_name || 'Producto',
-    product_image: review.product_image,
     user_id: review.user_id,
-    customer_name: review.customer_name || 'Cliente',
-    customer_email: review.customer_email || 'cliente@example.com',
     order_id: review.order_id,
     rating: review.rating,
     title: review.title,
@@ -78,11 +45,22 @@ function mapReviewRowToReview(review: any): Review {
     verified_purchase: review.verified_purchase,
     is_approved: review.is_approved,
     created_at: review.created_at,
-    updated_at: review.updated_at
+    updated_at: review.updated_at,
+    user: user ? {
+      id: user.id,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      email: user.email
+    } : undefined,
+    product: product ? {
+      id: product.id,
+      name: product.name,
+      slug: product.slug
+    } : undefined
   }
 }
 
-// Función para obtener reseñas desde la base de datos
+// Función para obtener reseñas de la base de datos
 export async function getReviewsFromDatabase(options: ReviewsQueryOptions = {}): Promise<{
   reviews: Review[]
   total: number
@@ -91,34 +69,45 @@ export async function getReviewsFromDatabase(options: ReviewsQueryOptions = {}):
 }> {
   try {
     const supabase = createServerClient()
-    const { page = 1, limit = 20, filters = {}, sort = { field: 'created_at', direction: 'desc' } } = options
     
+    const {
+      page = 1,
+      limit = 20,
+      filters = {},
+      sort = { field: 'created_at', direction: 'desc' }
+    } = options
+
     let query = supabase
       .from('product_reviews')
       .select(`
         *,
-        product:products(name, images),
-        user:users(first_name, last_name, email)
+        user:users(first_name, last_name, email),
+        product:products(name, slug)
       `)
 
     // Aplicar filtros
     if (filters.is_approved !== undefined) {
       query = query.eq('is_approved', filters.is_approved)
     }
+
     if (filters.verified_purchase !== undefined) {
       query = query.eq('verified_purchase', filters.verified_purchase)
     }
+
     if (filters.rating) {
       query = query.eq('rating', filters.rating)
     }
+
+    if (filters.product_id) {
+      query = query.eq('product_id', filters.product_id)
+    }
+
+    if (filters.user_id) {
+      query = query.eq('user_id', filters.user_id)
+    }
+
     if (filters.search) {
-      query = query.or(`title.ilike.%${filters.search}%,comment.ilike.%${filters.search}%,product.name.ilike.%${filters.search}%`)
-    }
-    if (filters.date_from) {
-      query = query.gte('created_at', filters.date_from)
-    }
-    if (filters.date_to) {
-      query = query.lte('created_at', filters.date_to)
+      query = query.or(`title.ilike.%${filters.search}%,comment.ilike.%${filters.search}%`)
     }
 
     // Aplicar ordenamiento
@@ -132,13 +121,18 @@ export async function getReviewsFromDatabase(options: ReviewsQueryOptions = {}):
     const { data: reviews, error, count } = await query
 
     if (error) {
-      console.error('Error fetching reviews:', error)
-      throw new Error('Error al obtener reseñas')
+      console.error('Error fetching reviews from database:', error)
+      throw new Error('Error al obtener reseñas de la base de datos')
     }
 
-    console.log('Raw reviews data:', reviews)
+    const mappedReviews = reviews?.map(review => 
+      mapReviewRowToReview(
+        review,
+        review.user as UserRow,
+        review.product as ProductRow
+      )
+    ) || []
 
-    const mappedReviews = reviews?.map(mapReviewRowToReview) || []
     const total = count || 0
     const totalPages = Math.ceil(total / limit)
 
@@ -148,13 +142,14 @@ export async function getReviewsFromDatabase(options: ReviewsQueryOptions = {}):
       page,
       totalPages
     }
+
   } catch (error) {
     console.error('Error in getReviewsFromDatabase:', error)
     throw error
   }
 }
 
-// Función para obtener una reseña por ID
+// Función para obtener una reseña específica por ID
 export async function getReviewById(id: string): Promise<Review | null> {
   try {
     const supabase = createServerClient()
@@ -163,20 +158,27 @@ export async function getReviewById(id: string): Promise<Review | null> {
       .from('product_reviews')
       .select(`
         *,
-        product:products(name, images),
-        user:users(first_name, last_name, email)
+        user:users(first_name, last_name, email),
+        product:products(name, slug)
       `)
       .eq('id', id)
       .single()
 
     if (error) {
-      console.error('Error fetching review:', error)
+      console.error('Error fetching review by ID:', error)
       return null
     }
 
-    console.log('Raw review data:', review)
+    if (!review) {
+      return null
+    }
 
-    return review ? mapReviewRowToReview(review) : null
+    return mapReviewRowToReview(
+      review,
+      review.user as UserRow,
+      review.product as ProductRow
+    )
+
   } catch (error) {
     console.error('Error in getReviewById:', error)
     return null
@@ -190,53 +192,38 @@ export async function getReviewStats(): Promise<{
   pendingReviews: number
   verifiedReviews: number
   averageRating: number
-  totalProducts: number
 }> {
   try {
     const supabase = createServerClient()
-    
-    // Obtener estadísticas básicas
+
     const { data: reviews, error } = await supabase
       .from('product_reviews')
-      .select('*')
+      .select('rating, is_approved, verified_purchase')
 
     if (error) {
-      console.error('Error fetching review stats:', error)
-      throw new Error('Error al obtener estadísticas de reseñas')
+      console.error('Error fetching reviews for stats:', error)
+      throw new Error('Error al obtener reseñas para estadísticas')
     }
 
     const totalReviews = reviews?.length || 0
     const approvedReviews = reviews?.filter(r => r.is_approved).length || 0
     const pendingReviews = reviews?.filter(r => !r.is_approved).length || 0
     const verifiedReviews = reviews?.filter(r => r.verified_purchase).length || 0
-    
-    const averageRating = reviews?.length 
-      ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length 
+    const averageRating = totalReviews > 0 
+      ? reviews?.reduce((sum, r) => sum + r.rating, 0) / totalReviews || 0
       : 0
-
-    // Obtener número de productos únicos
-    const uniqueProducts = new Set(reviews?.map(r => r.product_id) || [])
-    const totalProducts = uniqueProducts.size
 
     return {
       totalReviews,
       approvedReviews,
       pendingReviews,
       verifiedReviews,
-      averageRating,
-      totalProducts
+      averageRating
     }
+
   } catch (error) {
     console.error('Error in getReviewStats:', error)
-    // Retornar datos mock en caso de error
-    return {
-      totalReviews: mockReviews.length,
-      approvedReviews: mockReviews.filter(r => r.is_approved).length,
-      pendingReviews: mockReviews.filter(r => !r.is_approved).length,
-      verifiedReviews: mockReviews.filter(r => r.verified_purchase).length,
-      averageRating: mockReviews.reduce((sum, r) => sum + r.rating, 0) / mockReviews.length,
-      totalProducts: 2
-    }
+    throw error
   }
 }
 
@@ -250,55 +237,7 @@ export async function getReviews(options: ReviewsQueryOptions = {}): Promise<{
   try {
     return await getReviewsFromDatabase(options)
   } catch (error) {
-    console.error('Falling back to mock data due to database error:', error)
-    
-    // Aplicar filtros a datos mock
-    let filteredReviews = [...mockReviews]
-    
-    if (options.filters) {
-      if (options.filters.is_approved !== undefined) {
-        filteredReviews = filteredReviews.filter(r => r.is_approved === options.filters!.is_approved)
-      }
-      if (options.filters.verified_purchase !== undefined) {
-        filteredReviews = filteredReviews.filter(r => r.verified_purchase === options.filters!.verified_purchase)
-      }
-      if (options.filters.rating) {
-        filteredReviews = filteredReviews.filter(r => r.rating === options.filters!.rating)
-      }
-      if (options.filters.search) {
-        const search = options.filters.search.toLowerCase()
-        filteredReviews = filteredReviews.filter(r => 
-          r.title.toLowerCase().includes(search) ||
-          r.comment.toLowerCase().includes(search) ||
-          r.product_name.toLowerCase().includes(search)
-        )
-      }
-    }
-
-    // Aplicar ordenamiento
-    if (options.sort) {
-      filteredReviews.sort((a, b) => {
-        const aValue = a[options.sort!.field]
-        const bValue = b[options.sort!.field]
-        return options.sort!.direction === 'asc' 
-          ? (aValue > bValue ? 1 : -1)
-          : (aValue < bValue ? 1 : -1)
-      })
-    }
-
-    // Aplicar paginación
-    const { page = 1, limit = 20 } = options
-    const from = (page - 1) * limit
-    const to = from + limit
-    const paginatedReviews = filteredReviews.slice(from, to)
-    const total = filteredReviews.length
-    const totalPages = Math.ceil(total / limit)
-
-    return {
-      reviews: paginatedReviews,
-      total,
-      page,
-      totalPages
-    }
+    console.error('Error in getReviews:', error)
+    throw error
   }
 } 

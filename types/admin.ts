@@ -19,11 +19,7 @@ export interface Customer {
 export interface Review {
   id: string
   product_id: string
-  product_name: string
-  product_image?: string
   user_id: string
-  customer_name: string
-  customer_email: string
   order_id?: string
   rating: number
   title: string
@@ -32,6 +28,17 @@ export interface Review {
   is_approved: boolean
   created_at: string
   updated_at: string
+  user?: {
+    id: string
+    first_name: string
+    last_name: string
+    email: string
+  }
+  product?: {
+    id: string
+    name: string
+    slug: string
+  }
 }
 
 export interface ShippingMethod {

@@ -87,14 +87,21 @@ export interface OrderWithDetails {
   shipping_amount: number
   discount_amount: number
   total_amount: number
+  payment_method?: string
+  payment_method_title?: string
+  stripe_payment_intent_id?: string
   billing_address: Record<string, any>
   shipping_address: Record<string, any>
+  shipping_method?: string
+  shipping_method_title?: string
   tracking_number?: string
   customer_notes?: string
   admin_notes?: string
   created_at: string
   updated_at: string
-  customer: {
+  shipped_at?: string
+  delivered_at?: string
+  customer?: {
     id: string
     first_name: string
     last_name: string

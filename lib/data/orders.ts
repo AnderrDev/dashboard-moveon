@@ -1,76 +1,24 @@
 import { createServerClient } from '@/lib/supabase'
 import { OrderWithDetails } from '@/types/dashboard'
+import { Database } from '@/types/supabase'
 
-// Datos mock básicos para fallback
-const mockOrders: OrderWithDetails[] = [
-  {
-    id: '1',
-    order_number: 'ORD-001',
-    user_id: '1',
-    status: 'pending',
-    payment_status: 'pending',
-    subtotal: 150000,
-    tax_amount: 0,
-    shipping_amount: 0,
-    discount_amount: 0,
-    total_amount: 150000,
-    billing_address: {
-      first_name: 'Juan',
-      last_name: 'Pérez',
-      address_line_1: 'Calle 123',
-      city: 'Bogotá',
-      state: 'Cundinamarca',
-      postal_code: '110111',
-      country: 'CO',
-      phone: '3001234567'
-    },
-    shipping_address: {
-      first_name: 'Juan',
-      last_name: 'Pérez',
-      address_line_1: 'Calle 123',
-      city: 'Bogotá',
-      state: 'Cundinamarca',
-      postal_code: '110111',
-      country: 'CO',
-      phone: '3001234567'
-    },
-    tracking_number: undefined,
-    customer_notes: 'Pedido de prueba',
-    admin_notes: undefined,
-    created_at: '2024-01-15T10:00:00Z',
-    updated_at: '2024-01-15T10:00:00Z',
-    customer: {
-      id: '1',
-      first_name: 'Juan',
-      last_name: 'Pérez',
-      email: 'juan@example.com'
-    },
-    order_items: [
-      {
-        id: '1',
-        product_name: 'Producto de Prueba',
-        product_sku: 'PROD-001',
-        product_image: undefined,
-        quantity: 2,
-        unit_price: 75000,
-        total_price: 150000
-      }
-    ]
-  }
-]
+type OrderRow = Database['public']['Tables']['orders']['Row']
+type UserRow = Database['public']['Tables']['users']['Row']
 
-// Tipos para filtros y opciones de consulta
+// Tipos para las consultas de órdenes
 export interface OrderFilters {
   status?: string
   payment_status?: string
   user_id?: string
   search?: string
+  min_amount?: number
+  max_amount?: number
   date_from?: string
   date_to?: string
 }
 
 export interface OrderSortOptions {
-  field: 'created_at' | 'total_amount' | 'order_number' | 'status'
+  field: 'created_at' | 'total_amount' | 'order_number'
   direction: 'asc' | 'desc'
 }
 
@@ -81,8 +29,12 @@ export interface OrdersQueryOptions {
   sort?: OrderSortOptions
 }
 
-// Función para mapear datos de la base de datos
-function mapOrderRowToOrderWithDetails(order: any): OrderWithDetails {
+// Función para convertir OrderRow a OrderWithDetails
+function mapOrderRowToOrderWithDetails(
+  order: OrderRow,
+  customer?: UserRow,
+  orderItems: any[] = []
+): OrderWithDetails {
   return {
     id: order.id,
     order_number: order.order_number,
@@ -94,20 +46,27 @@ function mapOrderRowToOrderWithDetails(order: any): OrderWithDetails {
     shipping_amount: order.shipping_amount,
     discount_amount: order.discount_amount,
     total_amount: order.total_amount,
+    payment_method: order.payment_method,
+    payment_method_title: order.payment_method_title,
+    stripe_payment_intent_id: order.stripe_payment_intent_id,
     billing_address: order.billing_address,
     shipping_address: order.shipping_address,
+    shipping_method: order.shipping_method,
+    shipping_method_title: order.shipping_method_title,
     tracking_number: order.tracking_number,
     customer_notes: order.customer_notes,
     admin_notes: order.admin_notes,
     created_at: order.created_at,
     updated_at: order.updated_at,
-    customer: order.customer || {
-      id: '',
-      first_name: '',
-      last_name: '',
-      email: ''
-    },
-    order_items: order.order_items?.map((item: any) => ({
+    shipped_at: order.shipped_at,
+    delivered_at: order.delivered_at,
+    customer: customer ? {
+      id: customer.id,
+      first_name: customer.first_name,
+      last_name: customer.last_name,
+      email: customer.email
+    } : undefined,
+    order_items: orderItems.map(item => ({
       id: item.id,
       product_name: item.product_name,
       product_sku: item.product_sku,
@@ -115,11 +74,11 @@ function mapOrderRowToOrderWithDetails(order: any): OrderWithDetails {
       quantity: item.quantity,
       unit_price: item.unit_price,
       total_price: item.total_price
-    })) || []
+    }))
   }
 }
 
-// Función para obtener órdenes desde la base de datos
+// Función para obtener órdenes de la base de datos
 export async function getOrdersFromDatabase(options: OrdersQueryOptions = {}): Promise<{
   orders: OrderWithDetails[]
   total: number
@@ -128,32 +87,51 @@ export async function getOrdersFromDatabase(options: OrdersQueryOptions = {}): P
 }> {
   try {
     const supabase = createServerClient()
-    const { page = 1, limit = 20, filters = {}, sort = { field: 'created_at', direction: 'desc' } } = options
     
+    const {
+      page = 1,
+      limit = 20,
+      filters = {},
+      sort = { field: 'created_at', direction: 'desc' }
+    } = options
+
     let query = supabase
       .from('orders')
       .select(`
         *,
         customer:users(*),
-        order_items:order_items(*)
+        order_items(*)
       `)
 
     // Aplicar filtros
     if (filters.status) {
       query = query.eq('status', filters.status)
     }
+
     if (filters.payment_status) {
       query = query.eq('payment_status', filters.payment_status)
     }
+
     if (filters.user_id) {
       query = query.eq('user_id', filters.user_id)
     }
+
     if (filters.search) {
-      query = query.or(`order_number.ilike.%${filters.search}%,customer.first_name.ilike.%${filters.search}%,customer.last_name.ilike.%${filters.search}%`)
+      query = query.or(`order_number.ilike.%${filters.search}%,customer_notes.ilike.%${filters.search}%`)
     }
+
+    if (filters.min_amount !== undefined) {
+      query = query.gte('total_amount', filters.min_amount)
+    }
+
+    if (filters.max_amount !== undefined) {
+      query = query.lte('total_amount', filters.max_amount)
+    }
+
     if (filters.date_from) {
       query = query.gte('created_at', filters.date_from)
     }
+
     if (filters.date_to) {
       query = query.lte('created_at', filters.date_to)
     }
@@ -161,23 +139,32 @@ export async function getOrdersFromDatabase(options: OrdersQueryOptions = {}): P
     // Aplicar ordenamiento
     query = query.order(sort.field, { ascending: sort.direction === 'asc' })
 
-    // Aplicar paginación
-    const from = (page - 1) * limit
-    const to = from + limit - 1
-    query = query.range(from, to)
-
-    const { data: orders, error, count } = await query
+    const { data: orders, error } = await query
 
     if (error) {
-      console.error('Error fetching orders:', error)
-      throw new Error('Error al obtener pedidos')
+      console.error('Error fetching orders from database:', error)
+      throw new Error('Error al obtener órdenes de la base de datos')
     }
 
-    const total = count || 0
+    const total = orders?.length || 0
     const totalPages = Math.ceil(total / limit)
 
+    // Aplicar paginación
+    const from = (page - 1) * limit
+    const to = from + limit
+    const paginated = orders?.slice(from, to) || []
+
+    // Mapear resultados
+    const mappedOrders = paginated.map(order =>
+      mapOrderRowToOrderWithDetails(
+        order,
+        order.customer as UserRow,
+        order.order_items || []
+      )
+    )
+
     return {
-      orders: (orders || []).map(mapOrderRowToOrderWithDetails),
+      orders: mappedOrders,
       total,
       page,
       totalPages
@@ -198,14 +185,14 @@ export async function getOrderById(id: string): Promise<OrderWithDetails | null>
       .from('orders')
       .select(`
         *,
-        customer:customers(*),
-        order_items:order_items(*)
+        customer:users(*),
+        order_items(*)
       `)
       .eq('id', id)
       .single()
 
     if (error) {
-      console.error('Error fetching order:', error)
+      console.error('Error fetching order by ID:', error)
       return null
     }
 
@@ -213,7 +200,11 @@ export async function getOrderById(id: string): Promise<OrderWithDetails | null>
       return null
     }
 
-    return mapOrderRowToOrderWithDetails(order)
+    return mapOrderRowToOrderWithDetails(
+      order,
+      order.customer as UserRow,
+      order.order_items || []
+    )
 
   } catch (error) {
     console.error('Error in getOrderById:', error)
@@ -224,69 +215,63 @@ export async function getOrderById(id: string): Promise<OrderWithDetails | null>
 // Función para obtener estadísticas de órdenes
 export async function getOrderStats(): Promise<{
   totalOrders: number
+  totalRevenue: number
+  averageOrderValue: number
   pendingOrders: number
   processingOrders: number
   shippedOrders: number
   deliveredOrders: number
   cancelledOrders: number
-  totalRevenue: number
-  averageOrderValue: number
 }> {
   try {
     const supabase = createServerClient()
-    
-    const [
-      { count: totalOrders },
-      { count: pendingOrders },
-      { count: processingOrders },
-      { count: shippedOrders },
-      { count: deliveredOrders },
-      { count: cancelledOrders },
-      { data: revenueData }
-    ] = await Promise.all([
-      supabase.from('orders').select('*', { count: 'exact', head: true }),
-      supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-      supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'processing'),
-      supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'shipped'),
-      supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'delivered'),
-      supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'cancelled'),
-      supabase.from('orders').select('total_amount')
-    ])
 
-    const totalRevenue = revenueData?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0
-    const averageOrderValue = totalOrders ? totalRevenue / totalOrders : 0
+    const { data: orders, error } = await supabase
+      .from('orders')
+      .select('total_amount, status')
+
+    if (error) {
+      console.error('Error fetching orders for stats:', error)
+      throw new Error('Error al obtener órdenes para estadísticas')
+    }
+
+    const totalOrders = orders?.length || 0
+    const totalRevenue = orders?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0
+    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
+
+    const statusCounts = {
+      pending: 0,
+      processing: 0,
+      shipped: 0,
+      delivered: 0,
+      cancelled: 0
+    }
+
+    orders?.forEach(order => {
+      const status = order.status as keyof typeof statusCounts
+      if (status in statusCounts) {
+        statusCounts[status]++
+      }
+    })
 
     return {
-      totalOrders: totalOrders || 0,
-      pendingOrders: pendingOrders || 0,
-      processingOrders: processingOrders || 0,
-      shippedOrders: shippedOrders || 0,
-      deliveredOrders: deliveredOrders || 0,
-      cancelledOrders: cancelledOrders || 0,
+      totalOrders,
       totalRevenue,
-      averageOrderValue
+      averageOrderValue,
+      pendingOrders: statusCounts.pending,
+      processingOrders: statusCounts.processing,
+      shippedOrders: statusCounts.shipped,
+      deliveredOrders: statusCounts.delivered,
+      cancelledOrders: statusCounts.cancelled
     }
 
   } catch (error) {
     console.error('Error in getOrderStats:', error)
-    // Fallback a datos mock
-    const totalRevenue = mockOrders.reduce((sum, order) => sum + order.total_amount, 0)
-    const averageOrderValue = mockOrders.length ? totalRevenue / mockOrders.length : 0
-
-    return {
-      totalOrders: mockOrders.length,
-      pendingOrders: mockOrders.filter(o => o.status === 'pending').length,
-      processingOrders: mockOrders.filter(o => o.status === 'processing').length,
-      shippedOrders: mockOrders.filter(o => o.status === 'shipped').length,
-      deliveredOrders: mockOrders.filter(o => o.status === 'delivered').length,
-      cancelledOrders: mockOrders.filter(o => o.status === 'cancelled').length,
-      totalRevenue,
-      averageOrderValue
-    }
+    throw error
   }
 }
 
-// Función principal para obtener órdenes (con fallback a mock)
+// Función principal para obtener órdenes
 export async function getOrders(options: OrdersQueryOptions = {}): Promise<{
   orders: OrderWithDetails[]
   total: number
@@ -294,54 +279,9 @@ export async function getOrders(options: OrdersQueryOptions = {}): Promise<{
   totalPages: number
 }> {
   try {
-    // Intentar obtener datos de la base de datos
     return await getOrdersFromDatabase(options)
   } catch (error) {
-    console.warn('Falling back to mock data due to database error:', error)
-    
-    // Fallback a datos mock
-    const { page = 1, limit = 20, filters = {} } = options
-    
-    let filteredOrders = mockOrders
-
-    // Aplicar filtros básicos a los datos mock
-    if (filters.status) {
-      filteredOrders = filteredOrders.filter(o => o.status === filters.status)
-    }
-    if (filters.payment_status) {
-      filteredOrders = filteredOrders.filter(o => o.payment_status === filters.payment_status)
-    }
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase()
-      filteredOrders = filteredOrders.filter(o => 
-        o.order_number.toLowerCase().includes(searchLower) ||
-        o.customer.first_name.toLowerCase().includes(searchLower) ||
-        o.customer.last_name.toLowerCase().includes(searchLower)
-      )
-    }
-
-    // Aplicar ordenamiento
-    if (options.sort && filteredOrders) {
-      filteredOrders.sort((a, b) => {
-        const aValue = a[options.sort!.field]
-        const bValue = b[options.sort!.field]
-        return options.sort!.direction === 'asc' 
-          ? (aValue > bValue ? 1 : -1)
-          : (aValue < bValue ? 1 : -1)
-      })
-    }
-
-    const total = filteredOrders.length
-    const totalPages = Math.ceil(total / limit)
-    const startIndex = (page - 1) * limit
-    const endIndex = startIndex + limit
-    const paginatedOrders = filteredOrders.slice(startIndex, endIndex)
-
-    return {
-      orders: paginatedOrders,
-      total,
-      page,
-      totalPages
-    }
+    console.error('Error in getOrders:', error)
+    throw error
   }
 } 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { mockCategories } from '@/lib/mock-data'
+import { getCategories } from '@/lib/data'
 import { CategoryWithProducts } from '@/types/dashboard'
 
 export function useCategories() {
@@ -9,65 +9,29 @@ export function useCategories() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const loadCategories = async () => {
+  const loadCategories = async () => {
+    try {
       setLoading(true)
+      setError(null)
       
-      // Simular delay de API
-      await new Promise(resolve => setTimeout(resolve, 800))
-      
-      try {
-        setCategories(mockCategories)
-      } catch (err) {
-        console.error('Error loading categories:', err)
-        setError('Error cargando categorías')
-      } finally {
-        setLoading(false)
-      }
+      const { categories: categoriesData } = await getCategories()
+      setCategories(categoriesData)
+    } catch (err) {
+      console.error('Error loading categories:', err)
+      setError('Error al cargar categorías')
+    } finally {
+      setLoading(false)
     }
-    
+  }
+
+  useEffect(() => {
     loadCategories()
   }, [])
 
-  const deleteCategory = async (id: string) => {
-    // Simular delay de API
-    await new Promise(resolve => setTimeout(resolve, 500))
-    setCategories(prev => prev.filter(category => category.id !== id))
-  }
-
-  const toggleCategoryStatus = async (id: string) => {
-    // Simular delay de API
-    await new Promise(resolve => setTimeout(resolve, 300))
-    setCategories(prev => 
-      prev.map(category => 
-        category.id === id 
-          ? { ...category, is_active: !category.is_active }
-          : category
-      )
-    )
-  }
-
-  const updateCategory = async (id: string, data: Partial<CategoryWithProducts>) => {
-    // Simular delay de API
-    await new Promise(resolve => setTimeout(resolve, 500))
-    setCategories(prev => 
-      prev.map(category => 
-        category.id === id 
-          ? { ...category, ...data, updated_at: new Date().toISOString() }
-          : category
-      )
-    )
-  }
   return {
     categories,
     loading,
     error,
-    deleteCategory,
-    toggleCategoryStatus,
-    updateCategory,
-    refetch: () => {
-      setLoading(true)
-      setTimeout(() => setLoading(false), 500)
-    }
+    refetch: loadCategories
   }
 }

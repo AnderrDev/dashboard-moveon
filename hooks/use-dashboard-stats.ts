@@ -2,13 +2,19 @@
 
 import { useState, useEffect } from 'react'
 import { 
-  mockDashboardStats, 
-  mockSalesData, 
-  mockTopProducts, 
-  mockRecentOrders, 
-  mockLowStockAlerts 
-} from '@/lib/mock-data'
-import { DashboardStats, SalesData, TopProduct, RecentOrder, LowStockAlert } from '@/types/dashboard'
+  getDashboardStats, 
+  getSalesData, 
+  getTopProducts, 
+  getRecentOrders, 
+  getLowStockAlerts 
+} from '@/lib/data'
+import { 
+  DashboardStats, 
+  SalesData, 
+  TopProduct, 
+  RecentOrder, 
+  LowStockAlert 
+} from '@/types/dashboard'
 
 export function useDashboardStats() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
@@ -19,36 +25,41 @@ export function useDashboardStats() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    // Simular carga de datos con delay
-    const loadMockData = async () => {
+  const loadData = async () => {
+    try {
       setLoading(true)
-      
-      // Simular delay de API
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      try {
-        setStats(mockDashboardStats)
-        setSalesData(mockSalesData)
-        setTopProducts(mockTopProducts)
-        setRecentOrders(mockRecentOrders)
-        setLowStockAlerts(mockLowStockAlerts)
-      } catch (err) {
-        console.error('Error loading mock data:', err)
-        setError('Error cargando datos del dashboard')
-      } finally {
-        setLoading(false)
-      }
-    }
-    
-    loadMockData()
-  }, [])
+      setError(null)
 
-  const refetchData = async () => {
-    setLoading(true)
-    await new Promise(resolve => setTimeout(resolve, 500))
-    setLoading(false)
+      const [
+        dashboardStats,
+        sales,
+        topProductsData,
+        recentOrdersData,
+        lowStockAlertsData
+      ] = await Promise.all([
+        getDashboardStats(),
+        getSalesData(),
+        getTopProducts(),
+        getRecentOrders(),
+        getLowStockAlerts()
+      ])
+
+      setStats(dashboardStats)
+      setSalesData(sales)
+      setTopProducts(topProductsData)
+      setRecentOrders(recentOrdersData)
+      setLowStockAlerts(lowStockAlertsData)
+    } catch (err) {
+      console.error('Error loading dashboard data:', err)
+      setError('Error al cargar los datos del dashboard')
+    } finally {
+      setLoading(false)
+    }
   }
+
+  useEffect(() => {
+    loadData()
+  }, [])
 
   return {
     stats,
@@ -58,6 +69,6 @@ export function useDashboardStats() {
     lowStockAlerts,
     loading,
     error,
-    refetch: refetchData
+    refetch: loadData
   }
 }

@@ -1,5 +1,4 @@
 import { createServerClient } from '@/lib/supabase'
-import { mockProducts } from '@/lib/mock-data'
 import { ProductWithCategory } from '@/types/dashboard'
 import { Database } from '@/types/supabase'
 
@@ -124,12 +123,8 @@ export async function getProductsFromDatabase(options: ProductsQueryOptions = {}
       query = query.gt('stock_quantity', 0)
     }
 
-    // No aplicar .lte(stock_quantity, raw...) porque no está soportado
-
     // Aplicar ordenamiento
     query = query.order(sort.field, { ascending: sort.direction === 'asc' })
-
-    // No aplicamos paginación aún si hay filtro `low_stock`, porque vamos a filtrar manualmente
 
     const { data: products, error } = await query
 
@@ -175,7 +170,6 @@ export async function getProductsFromDatabase(options: ProductsQueryOptions = {}
     throw error
   }
 }
-
 
 // Función para obtener un producto específico por ID
 export async function getProductById(id: string): Promise<ProductWithCategory | null> {
@@ -266,8 +260,7 @@ export async function getFeaturedProducts(limit: number = 6): Promise<ProductWit
 
   } catch (error) {
     console.error('Error in getFeaturedProducts:', error)
-    // Fallback a datos mock
-    return mockProducts.filter(p => p.is_featured).slice(0, limit)
+    throw error
   }
 }
 
@@ -284,8 +277,7 @@ export async function getLowStockProducts(limit: number = 10): Promise<ProductWi
 
   } catch (error) {
     console.error('Error in getLowStockProducts:', error)
-    // Fallback a datos mock
-    return mockProducts.filter(p => p.stock_quantity <= p.low_stock_threshold).slice(0, limit)
+    throw error
   }
 }
 
@@ -302,15 +294,7 @@ export async function searchProducts(searchTerm: string, limit: number = 20): Pr
 
   } catch (error) {
     console.error('Error in searchProducts:', error)
-    // Fallback a datos mock
-    const searchLower = searchTerm.toLowerCase()
-    return mockProducts.filter(p => 
-      p.is_active && (
-        p.name.toLowerCase().includes(searchLower) ||
-        p.description?.toLowerCase().includes(searchLower) ||
-        p.sku.toLowerCase().includes(searchLower)
-      )
-    ).slice(0, limit)
+    throw error
   }
 }
 
@@ -349,21 +333,7 @@ export async function getProductsByCategory(
 
   } catch (error) {
     console.error('Error in getProductsByCategory:', error)
-    // Fallback a datos mock
-    const mockProductsInCategory = mockProducts.filter(p => 
-      p.category?.slug === categorySlug && p.is_active
-    )
-    
-    const { page = 1, limit = 20 } = options
-    const from = (page - 1) * limit
-    const to = from + limit
-    
-    return {
-      products: mockProductsInCategory.slice(from, to),
-      total: mockProductsInCategory.length,
-      page,
-      totalPages: Math.ceil(mockProductsInCategory.length / limit)
-    }
+    throw error
   }
 }
 
@@ -390,7 +360,7 @@ export async function getProductStats(): Promise<{
       supabase.from('products').select('*', { count: 'exact', head: true }).eq('is_active', true),
       supabase.from('products').select('*', { count: 'exact', head: true }).eq('is_featured', true),
       supabase.from('products').select('*', { count: 'exact', head: true }).eq('stock_quantity', 0),
-      supabase.from('products').select('stock_quantity, low_stock_threshold') // 👈 solo traemos los campos necesarios
+      supabase.from('products').select('stock_quantity, low_stock_threshold')
     ])
 
     if (stockError) throw stockError
@@ -409,22 +379,9 @@ export async function getProductStats(): Promise<{
 
   } catch (error) {
     console.error('Error in getProductStats:', error)
-    // Fallback a datos mock si falla Supabase
-    const activeProducts = mockProducts.filter(p => p.is_active)
-    const featuredProducts = mockProducts.filter(p => p.is_featured)
-    const lowStockProducts = mockProducts.filter(p => p.stock_quantity <= p.low_stock_threshold)
-    const outOfStockProducts = mockProducts.filter(p => p.stock_quantity === 0)
-
-    return {
-      totalProducts: mockProducts.length,
-      activeProducts: activeProducts.length,
-      featuredProducts: featuredProducts.length,
-      lowStockProducts: lowStockProducts.length,
-      outOfStockProducts: outOfStockProducts.length
-    }
+    throw error
   }
 }
-
 
 // Función para actualizar un producto
 export async function updateProduct(id: string, data: {
@@ -600,7 +557,7 @@ export async function createProduct(data: {
   }
 }
 
-// Función principal para obtener productos (con fallback a mock)
+// Función principal para obtener productos
 export async function getProducts(options: ProductsQueryOptions = {}): Promise<{
   products: ProductWithCategory[]
   total: number
@@ -608,78 +565,10 @@ export async function getProducts(options: ProductsQueryOptions = {}): Promise<{
   totalPages: number
 }> {
   try {
-    // Intentar obtener datos de la base de datos
+    // Obtener datos de la base de datos
     return await getProductsFromDatabase(options)
   } catch (error) {
-    console.warn('Falling back to mock data due to database error:', error)
-    
-    // Fallback a datos mock
-    const { page = 1, limit = 20, filters = {} } = options
-    
-    let filteredProducts = mockProducts
-
-    // Aplicar filtros básicos a los datos mock
-    if (filters.is_active !== undefined) {
-      filteredProducts = filteredProducts.filter(p => p.is_active === filters.is_active)
-    }
-
-    if (filters.is_featured !== undefined) {
-      filteredProducts = filteredProducts.filter(p => p.is_featured === filters.is_featured)
-    }
-
-    if (filters.category_id) {
-      filteredProducts = filteredProducts.filter(p => p.category?.id === filters.category_id)
-    }
-
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase()
-      filteredProducts = filteredProducts.filter(p => 
-        p.name.toLowerCase().includes(searchLower) ||
-        p.description?.toLowerCase().includes(searchLower) ||
-        p.sku.toLowerCase().includes(searchLower)
-      )
-    }
-
-    if (filters.min_price !== undefined) {
-      filteredProducts = filteredProducts.filter(p => p.price >= filters.min_price!)
-    }
-
-    if (filters.max_price !== undefined) {
-      filteredProducts = filteredProducts.filter(p => p.price <= filters.max_price!)
-    }
-
-    if (filters.in_stock) {
-      filteredProducts = filteredProducts.filter(p => p.stock_quantity > 0)
-    }
-
-    if (filters.low_stock) {
-      filteredProducts = filteredProducts.filter(p => p.stock_quantity <= p.low_stock_threshold)
-    }
-
-    // Aplicar ordenamiento
-    if (options.sort) {
-      filteredProducts.sort((a, b) => {
-        const aValue = a[options.sort!.field]
-        const bValue = b[options.sort!.field]
-        
-        if (options.sort!.direction === 'asc') {
-          return aValue < bValue ? -1 : aValue > bValue ? 1 : 0
-        } else {
-          return aValue > bValue ? -1 : aValue < bValue ? 1 : 0
-        }
-      })
-    }
-
-    const total = filteredProducts.length
-    const from = (page - 1) * limit
-    const to = from + limit
-    const paginatedProducts = filteredProducts.slice(from, to)
-
-    return {
-      products: paginatedProducts,
-      total,
-      page,
-      totalPages: Math.ceil(total / limit)
-    }
+    console.error('Error in getProducts:', error)
+    throw error
   }
 } 
