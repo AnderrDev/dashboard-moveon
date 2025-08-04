@@ -41,68 +41,132 @@ const formatCurrency = (value: number) => {
 
 // Componente para las estadísticas del dashboard
 async function DashboardStats() {
-  const stats = await getDashboardStats()
+  try {
+    const stats = await getDashboardStats()
 
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <StatsCard
-        title="Ingresos Totales"
-        value={formatCurrency(stats.totalRevenue)}
-        change={stats.revenueGrowth}
-        icon={<DollarSign className="h-5 w-5" />}
-      />
-      <StatsCard
-        title="Pedidos"
-        value={stats.totalOrders}
-        change={stats.ordersGrowth}
-        icon={<ShoppingCart className="h-5 w-5" />}
-      />
-      <StatsCard
-        title="Clientes"
-        value={stats.totalCustomers}
-        change={stats.customersGrowth}
-        icon={<Users className="h-5 w-5" />}
-      />
-      <StatsCard
-        title="Valor Promedio"
-        value={formatCurrency(stats.averageOrderValue)}
-        change={stats.conversionRate}
-        icon={<TrendingUp className="h-5 w-5" />}
-      />
-    </div>
-  )
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatsCard
+          title="Ingresos Totales"
+          value={formatCurrency(stats.totalRevenue)}
+          change={stats.revenueGrowth}
+          icon={<DollarSign className="h-5 w-5" />}
+        />
+        <StatsCard
+          title="Pedidos"
+          value={stats.totalOrders}
+          change={stats.ordersGrowth}
+          icon={<ShoppingCart className="h-5 w-5" />}
+        />
+        <StatsCard
+          title="Clientes"
+          value={stats.totalCustomers}
+          change={stats.customersGrowth}
+          icon={<Users className="h-5 w-5" />}
+        />
+        <StatsCard
+          title="Valor Promedio"
+          value={formatCurrency(stats.averageOrderValue)}
+          change={stats.conversionRate}
+          icon={<TrendingUp className="h-5 w-5" />}
+        />
+      </div>
+    )
+  } catch (error) {
+    console.error('Error en DashboardStats:', error)
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="p-6 border rounded-lg">
+            <div className="text-center py-4">
+              <p className="text-gray-500 text-sm">Error al cargar estadísticas</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
 }
 
 // Componente para el gráfico de ventas
 async function SalesChartSection() {
-  const salesData = await getSalesData()
+  try {
+    const salesData = await getSalesData()
 
-  return (
-    <div className="lg:col-span-2">
-      <SalesChart data={salesData} />
-    </div>
-  )
+    return (
+      <div className="lg:col-span-2">
+        <SalesChart data={salesData} />
+      </div>
+    )
+  } catch (error) {
+    console.error('Error en SalesChartSection:', error)
+    return (
+      <div className="lg:col-span-2 p-6 border rounded-lg">
+        <h3 className="text-lg font-semibold mb-4">Gráfico de Ventas</h3>
+        <div className="text-center py-8">
+          <p className="text-gray-500 mb-2">Error al cargar datos de ventas</p>
+          <p className="text-sm text-gray-400">Por favor, verifica la configuración de la base de datos</p>
+        </div>
+      </div>
+    )
+  }
 }
 
 // Componente para productos más vendidos
 async function TopProductsSection() {
-  const topProducts = await getTopProducts()
-
-  return <TopProducts products={topProducts} />
+  try {
+    const topProducts = await getTopProducts()
+    return <TopProducts products={topProducts} />
+  } catch (error) {
+    console.error('Error en TopProductsSection:', error)
+    return (
+      <div className="p-6 border rounded-lg">
+        <h3 className="text-lg font-semibold mb-4">Productos Más Vendidos</h3>
+        <div className="text-center py-8">
+          <p className="text-gray-500 mb-2">Error al cargar productos más vendidos</p>
+          <p className="text-sm text-gray-400">Por favor, verifica la configuración de la base de datos</p>
+        </div>
+      </div>
+    )
+  }
 }
 
 // Componente para pedidos recientes
 async function RecentOrdersSection() {
-  const recentOrders = await getRecentOrders()
-
-  return <RecentOrders orders={recentOrders} />
+  try {
+    const recentOrders = await getRecentOrders()
+    return <RecentOrders orders={recentOrders} />
+  } catch (error) {
+    console.error('Error en RecentOrdersSection:', error)
+    return (
+      <div className="p-6 border rounded-lg">
+        <h3 className="text-lg font-semibold mb-4">Pedidos Recientes</h3>
+        <div className="text-center py-8">
+          <p className="text-gray-500 mb-2">Error al cargar los pedidos recientes</p>
+          <p className="text-sm text-gray-400">Por favor, verifica la configuración de la base de datos</p>
+        </div>
+      </div>
+    )
+  }
 }
 
 // Componente para alertas de stock
 async function LowStockAlertsSection() {
-  const lowStockAlerts = await getLowStockAlerts()
-
-  return <LowStockAlerts alerts={lowStockAlerts} />
+  try {
+    const lowStockAlerts = await getLowStockAlerts()
+    return <LowStockAlerts alerts={lowStockAlerts} />
+  } catch (error) {
+    console.error('Error en LowStockAlertsSection:', error)
+    return (
+      <div className="p-6 border rounded-lg">
+        <h3 className="text-lg font-semibold mb-4">Alertas de Stock Bajo</h3>
+        <div className="text-center py-8">
+          <p className="text-gray-500 mb-2">Error al cargar alertas de stock</p>
+          <p className="text-sm text-gray-400">Por favor, verifica la configuración de la base de datos</p>
+        </div>
+      </div>
+    )
+  }
 }
 
 // Componentes skeleton para carga
